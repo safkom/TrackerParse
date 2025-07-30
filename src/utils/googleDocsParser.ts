@@ -63,7 +63,7 @@ export class GoogleDocsParser {
       console.error('CSV parsing errors:', results.errors);
     }
 
-    const rows = results.data as any[];
+    const rows = results.data as Record<string, string>[];
     
     if (rows.length === 0) {
       throw new Error('No data found in the spreadsheet');
@@ -73,7 +73,7 @@ export class GoogleDocsParser {
     const albumMap = new Map<string, Track[]>();
     let artistName = '';
 
-    rows.forEach((row, index) => {
+    rows.forEach((row) => {
       // Skip header rows or empty rows
       if (!row.Era && !row.Name) return;
 

@@ -21,7 +21,7 @@ export class CacheManager {
       await this.ensureCacheDir();
       const data = await fs.readFile(CACHE_FILE, 'utf-8');
       return JSON.parse(data);
-    } catch (error) {
+    } catch {
       // Return empty cache if file doesn't exist or is invalid
       return {};
     }

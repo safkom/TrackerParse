@@ -15,11 +15,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Extract document ID from URL
     let docId: string;
     try {
       docId = GoogleDocsParser.getDocumentId(googleDocsUrl);
-    } catch (error) {
+    } catch {
       return NextResponse.json(
         { error: 'Invalid Google Docs URL format' },
         { status: 400 }

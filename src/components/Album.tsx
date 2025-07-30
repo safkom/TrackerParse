@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { Album as AlbumType } from '@/types';
 import Track from './Track';
 
@@ -21,9 +22,11 @@ export default function Album({ album }: AlbumProps) {
         <div className="flex items-start space-x-4">
           {/* Album Picture */}
           <div className="flex-shrink-0">
-            <img
+            <Image
               src={album.picture}
               alt={album.name}
+              width={80}
+              height={80}
               className="w-20 h-20 rounded-lg object-cover bg-gray-300"
               onError={(e) => {
                 e.currentTarget.src = '/placeholder-album.jpg';

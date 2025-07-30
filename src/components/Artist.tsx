@@ -43,7 +43,7 @@ export default function Artist({ artist, error }: ArtistProps) {
           <div className="text-gray-400 text-6xl mb-4">🎵</div>
           <h2 className="text-xl font-semibold text-gray-600 mb-2">No Albums Found</h2>
           <p className="text-gray-500">
-            This artist doesn't have any albums in the spreadsheet yet.
+            This artist doesn&apos;t have any albums in the spreadsheet yet.
           </p>
         </div>
       )}

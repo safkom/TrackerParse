@@ -1,36 +1,154 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# TrackerHub
+
+A web application similar to trackerhub.cx that parses Google Docs spreadsheets and displays artist information with albums and tracks. Features include caching for improved performance and a responsive React interface.
+
+## Features
+
+- **Google Docs Integration**: Parse publicly accessible Google Sheets containing artist/track data
+- **Smart Caching**: JSON-based caching system to avoid re-parsing the same spreadsheets
+- **Artist Display**: Clean, organized view of artists, albums, and tracks
+- **Track Details**: Comprehensive track information including era, links, dates, quality, and more
+- **Responsive Design**: Mobile-friendly interface built with Tailwind CSS
+- **TypeScript**: Full type safety throughout the application
+
+## Expected Data Structure
+
+Your Google Sheets should contain the following columns:
+
+- **Era**: Album or era name
+- **Name**: Track name
+- **Link to google doc**: Link to track document
+- **Notes**: Additional track notes
+- **Discord link**: Discord discussion link
+- **Track Length**: Duration of the track
+- **File Date**: Date the file was created
+- **Leak Date**: Date the track was leaked
+- **Available Length**: How much of the track is available
+- **Quality**: Audio quality information
+- **Link(s)**: Additional links (comma-separated)
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
 
+- Node.js 18+ 
+- npm or yarn
+
+### Installation
+
+1. Clone the repository:
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+git clone <your-repo-url>
+cd TrackerHub
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+2. Install dependencies:
+```bash
+npm install
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+3. Run the development server:
+```bash
+npm run dev
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-## Learn More
+### Usage
 
-To learn more about Next.js, take a look at the following resources:
+1. Enter a Google Docs spreadsheet URL (must be publicly accessible)
+2. Click "Parse Spreadsheet" to analyze the data
+3. View organized artist, album, and track information
+4. Use the "Force refresh" option to bypass cache when needed
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Tech Stack
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+- **Next.js 15**: React framework with App Router
+- **TypeScript**: Type safety and better development experience
+- **Tailwind CSS**: Utility-first CSS framework
+- **Axios**: HTTP client for API requests
+- **PapaParse**: CSV parsing library
+- **Node.js**: Server-side runtime
 
-## Deploy on Vercel
+## Project Structure
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```
+src/
+├── app/
+│   ├── api/parse/route.ts    # API endpoint for parsing Google Docs
+│   └── page.tsx              # Main application page
+├── components/
+│   ├── Artist.tsx            # Artist display component
+│   ├── Album.tsx             # Album display component
+│   ├── Track.tsx             # Track display component
+│   └── GoogleDocsForm.tsx    # URL input form
+├── types/
+│   └── index.ts              # TypeScript type definitions
+└── utils/
+    ├── googleDocsParser.ts   # Google Docs parsing logic
+    └── cacheManager.ts       # Caching system
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## API Endpoints
+
+### POST /api/parse
+Parse a Google Docs spreadsheet URL
+
+**Request Body:**
+```json
+{
+  "googleDocsUrl": "https://docs.google.com/spreadsheets/d/...",
+  "forceRefresh": false
+}
+```
+
+**Response:**
+```json
+{
+  "artist": {
+    "id": "artist-123",
+    "name": "Artist Name",
+    "albums": [...],
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  },
+  "error": "Optional error message"
+}
+```
+
+### GET /api/parse?docId=...
+Retrieve cached data for a specific document ID
+
+## Caching
+
+The application uses a JSON-based caching system that:
+- Stores parsed spreadsheet data locally
+- Reduces API calls to Google Docs
+- Provides fallback data when parsing fails
+- Can be bypassed with the "Force refresh" option
+
+Cache files are stored in the `cache/` directory.
+
+## Contributing
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
+
+## License
+
+This project is open source and available under the [MIT License](LICENSE).
+
+## Troubleshooting
+
+### Common Issues
+
+1. **"Access denied" error**: Ensure the Google Docs spreadsheet is publicly accessible
+2. **"Invalid URL format"**: Make sure you're using a valid Google Sheets URL
+3. **No data found**: Check that your spreadsheet has the expected column headers
+4. **Parsing errors**: Verify your spreadsheet data format matches the expected structure
+
+### Support
+
+If you encounter any issues, please check the browser console for detailed error messages and ensure your Google Docs URL is correct and publicly accessible.

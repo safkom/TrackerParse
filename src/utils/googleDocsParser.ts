@@ -519,44 +519,58 @@ export class GoogleDocsParser {
                            !secondCol.includes('http'); // Not a URL
       
       if (isMetadataRow) {
-        // Parse the era name to extract main name, alternate names, and description
-        const eraNameInfo = GoogleDocsParser.parseEraName(secondCol);
-        
+        // Some trackers place notes, description and image in the same cell as the era name
+        const cellLines = secondCol.split('\n').map(line => line.trim()).filter(line => line);
+        const eraNameLine = cellLines.shift() || '';
+        const eraNameInfo = GoogleDocsParser.parseEraName(eraNameLine);
+
         currentEra = eraNameInfo.mainName;
         console.log(`Found era with metadata: ${currentEra}`);
         console.log(`Original era text: ${secondCol}`);
         console.log(`Alternate names: ${eraNameInfo.alternateNames.join(', ')}`);
         console.log(`Metadata: ${firstCol}`);
-        
+
         // Parse metadata from first column
         const metadata = this.parseEraMetadata(firstCol);
-        
-        // Extract era image and description from other columns
+
         let eraImage = '';
         let eraDescription = '';
         let eraNotes = '';
-        
+
+        // Remaining lines from the second column may include notes, image, or description
+        for (const line of cellLines) {
+          if (!eraImage) {
+            const imgMatch = line.match(/https?:\/\/[^\s"'<>()]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)/i) ||
+                             line.match(/https?:\/\/drive\.google\.com\/[^\s"'<>()]+/i) ||
+                             line.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
+            if (imgMatch) {
+              eraImage = imgMatch[0];
+              continue;
+            }
+          }
+          if (!eraDescription && !line.includes('http')) {
+            eraDescription = line;
+            continue;
+          }
+          if (!eraNotes) {
+            eraNotes = line;
+          }
+        }
+
+        // Look through remaining columns for additional info
         for (let j = 2; j < row.length; j++) {
           const cell = row[j] || '';
           if (!cell.trim()) continue;
-          
-          // Look for image URLs
+
           const imageMatch = cell.match(/https?:\/\/[^\s"'<>()]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)/i) ||
-                           cell.match(/https?:\/\/drive\.google\.com\/[^\s"'<>()]+/i) ||
-                           cell.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
+                             cell.match(/https?:\/\/drive\.google\.com\/[^\s"'<>()]+/i) ||
+                             cell.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
           if (imageMatch && !eraImage) {
             eraImage = imageMatch[0];
           }
-          
-          // Separate notes (in parentheses with dates) from description
-          if (cell.includes('(') && cell.includes(')')) {
-            // Check if this looks like a timeline entry with dates
-            const hasDatePattern = cell.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)|(\?\?\?\?\?\?\?\?)/);
-            if (hasDatePattern && !eraNotes) {
-              eraNotes = cell;
-            } else if (!eraNotes) {
-              eraNotes = cell;
-            }
+
+          if (cell.includes('(') && cell.includes(')') && !eraNotes) {
+            eraNotes = cell;
           } else if (!cell.includes('http') && cell.length > 10 && !eraDescription) {
             eraDescription = cell;
           }
@@ -1625,7 +1639,6 @@ export class GoogleDocsParser {
         // Calculate stats from the filtered tracks only
         const allFilteredTracks = albums.flatMap(album => album.tracks);
         
-        const specialTracksCount = allFilteredTracks.filter(track => track.isSpecial).length;
         const bestOfCount = allFilteredTracks.filter(track => track.specialType === '⭐').length;
         const specialCount = allFilteredTracks.filter(track => track.specialType === '✨').length;
         const wantedCount = allFilteredTracks.filter(track => track.specialType === '🏆').length;

@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     const format = searchParams.get('format') as 'json' | 'csv' || 'json';
     const includeMetadata = searchParams.get('includeMetadata') !== 'false';
 
-    if (!docId) {
+    if (!docId || !/^[a-zA-Z0-9_-]+$/.test(docId)) {
       return NextResponse.json(
         { error: 'docId parameter is required' },
         { status: 400 }
@@ -50,10 +50,7 @@ export async function GET(request: NextRequest) {
       contentType = 'application/json';
       filename = DataExporter.generateFilename(parsedData.artist.name, docId, 'json');
     } else {
-      content = DataExporter.exportToCSV(parsedData.artist, docId, {
-        format: 'csv',
-        flattenTracks: true
-      });
+      content = DataExporter.exportToCSV(parsedData.artist);
       contentType = 'text/csv';
       filename = DataExporter.generateFilename(parsedData.artist.name, docId, 'csv');
     }
@@ -81,7 +78,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { docId, format = 'json', includeMetadata = true, artistData } = body;
 
-    if (!docId || !artistData) {
+    if (!docId || !/^[a-zA-Z0-9_-]+$/.test(docId) || !artistData) {
       return NextResponse.json(
         { error: 'docId and artistData are required' },
         { status: 400 }
@@ -101,10 +98,7 @@ export async function POST(request: NextRequest) {
       contentType = 'application/json';
       filename = DataExporter.generateFilename(artistData.name, docId, 'json');
     } else {
-      content = DataExporter.exportToCSV(artistData, docId, {
-        format: 'csv',
-        flattenTracks: true
-      });
+      content = DataExporter.exportToCSV(artistData);
       contentType = 'text/csv';
       filename = DataExporter.generateFilename(artistData.name, docId, 'csv');
     }

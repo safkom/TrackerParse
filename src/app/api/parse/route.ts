@@ -16,6 +16,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Basic URL validation to prevent SSRF
+    let parsedUrl: URL;
+    try {
+      parsedUrl = new URL(googleDocsUrl);
+    } catch {
+      return NextResponse.json(
+        { error: 'Invalid URL' },
+        { status: 400 }
+      );
+    }
+
+    if (parsedUrl.hostname !== 'docs.google.com' || parsedUrl.protocol !== 'https:') {
+      return NextResponse.json(
+        { error: 'Invalid Google Docs host' },
+        { status: 400 }
+      );
+    }
+
     let docId: string;
     try {
       docId = GoogleDocsParser.getDocumentId(googleDocsUrl);

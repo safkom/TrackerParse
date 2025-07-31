@@ -4,7 +4,6 @@ import { useState, useEffect, useMemo } from 'react';
 import Image from 'next/image';
 import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
-import { ColorExtractor } from '@/utils/colorExtractor';
 import CollapsedTrack from './CollapsedTrack';
 import StatsDisplay from './StatsDisplay';
 
@@ -35,17 +34,6 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
     }));
   }, [album.tracks]);
 
-  // Extract color palette for this album
-  const colorPalette = useMemo(() => {
-    // Use album picture if available, otherwise use album name for color scheme matching
-    const imageOrName = album.picture || album.name;
-    return ColorExtractor.getEraColorScheme(imageOrName);
-  }, [album.picture, album.name]);
-
-  // Generate Tailwind classes from color palette
-  const colorClasses = useMemo(() => {
-    return ColorExtractor.colorPaletteToTailwind(colorPalette);
-  }, [colorPalette]);
 
   const handleHeaderClick = (e: React.MouseEvent) => {
     // Only toggle if clicking on the header itself, not on interactive elements
@@ -60,7 +48,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
   };
 
   return (
-    <div className="album-card bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 transition-shadow duration-200 hover:shadow-lg mt-4">
+    <div className="album-card fade-in bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 transition-shadow duration-200 hover:shadow-lg mt-4">
       {/* Compact Album Header */}
       <div 
         className="relative p-3 cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
@@ -77,7 +65,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
                   alt={album.name}
                   width={40}
                   height={40}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-cover era-image"
                   unoptimized={album.picture.includes('.svg')}
                 />
               ) : (

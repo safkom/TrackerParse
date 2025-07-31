@@ -50,6 +50,8 @@ body {
 
 /* Album Card Styling */
 .album-card {
+  position: relative;
+  z-index: 1;
   background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
   border: 1px solid rgba(0, 0, 0, 0.05);
@@ -249,6 +251,22 @@ input[type="range"]::-moz-range-thumb {
   box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
 }
 
+/* Simple fade-in animation for album cards */
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in {
+  animation: fade-in 0.4s ease-in;
+}
+
 /* Loading animations */
 @keyframes shimmer {
   0% {
@@ -290,16 +308,10 @@ input[type="range"]::-moz-range-thumb {
   z-index: 10;
 }
 
-/* Enhanced Era Styling */
-.album-card {
-  position: relative;
-  z-index: 1;
-}
-
 .album-card .bg-gradient-to-br {
   background-image: linear-gradient(
-    to bottom right, 
-    var(--tw-gradient-from), 
+    to bottom right,
+    var(--tw-gradient-from),
     var(--tw-gradient-to)
   );
 }

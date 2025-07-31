@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="300" height="300" viewBox="0 0 300 300">
+  <rect width="300" height="300" fill="#f3f4f6"/>
+  <g transform="translate(150,150)">
+    <circle cx="0" cy="-20" r="30" fill="#9ca3af" opacity="0.3"/>
+    <rect x="-40" y="10" width="80" height="50" rx="4" fill="#9ca3af" opacity="0.3"/>
+    <path d="M-25 25 L-15 35 L-5 25 L5 35 L15 25 L25 35" stroke="#9ca3af" stroke-width="2" fill="none" opacity="0.4"/>
+  </g>
+  <text x="150" y="280" text-anchor="middle" font-family="system-ui, sans-serif" font-size="14" fill="#6b7280">Album Cover</text>
+</svg>

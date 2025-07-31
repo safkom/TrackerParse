@@ -1,63 +1,5 @@
 import axios from 'axios';
-import { Artist, Album, Track, TrackTitle, TrackerStatistics, EraMetadata } from '@/types';
-
-// Google Sheets API response interfaces
-interface GoogleSheetsColumn {
-  id: string;
-  label: string;
-  type: string;
-}
-
-interface GoogleSheetsCell {
-  v: string | number | boolean | null;
-  f?: string;
-}
-
-interface GoogleSheetsRow {
-  c: (GoogleSheetsCell | null)[];
-}
-
-interface GoogleSheetsTable {
-  cols: GoogleSheetsColumn[];
-  rows: GoogleSheetsRow[];
-  parsedNumHeaders?: number;
-}
-
-interface GoogleSheetsResponse {
-  version?: string;
-  reqId?: string;
-  status?: string;
-  sig?: string;
-  table?: GoogleSheetsTable;
-}
-
-interface ParsedJsonData {
-  metadata: {
-    artistName?: string;
-    discordLink?: string;
-    [key: string]: unknown;
-  };
-  columnMap: Record<string, number>;
-  headers: string[];
-  eras: {
-    name: string;
-    trackCount: number;
-    firstTrackIndex: number;
-    tracks?: Track[];
-    picture?: string;
-    description?: string;
-    notes?: string;
-    [key: string]: unknown;
-  }[];
-  tracks: {
-    name: string;
-    era: string;
-    [key: string]: unknown;
-  }[];
-  statistics: Record<string, unknown>;
-  totalRows: number;
-  dataRows: number;
-}
+import { Artist, Album, Track, TrackTitle, UpdateEntry, StatEntry } from '@/types';
 
 export class GoogleDocsParser {
   // Convert Google Docs URL to JSON API URL
@@ -90,7 +32,7 @@ export class GoogleDocsParser {
   }
 
   // Parse Google Sheets JSON response
-  static parseGoogleSheetsJson(jsonText: string): GoogleSheetsResponse | GoogleSheetsTable {
+  static parseGoogleSheetsJson(jsonText: string): any {
     console.log('Raw JSON response preview:', jsonText.substring(0, 500) + '...');
     
     // Google Sheets JSON response can have different formats:
@@ -100,7 +42,7 @@ export class GoogleDocsParser {
     // 4. google.visualization.Query.setResponse({"version":"0.6",...});
     // 5. Sometimes just the JSON object directly
     
-    let jsonData: GoogleSheetsResponse;
+    let jsonData: any;
     
     // Try to extract JSON from function call format (both DataTable and Query)
     const functionCallMatch = jsonText.match(/google\.visualization\.(?:DataTable|Query)\.setResponse\((.+)\);?\s*$/);
@@ -114,7 +56,7 @@ export class GoogleDocsParser {
       }
     } else {
       // Try to remove the /*O_o*/ prefix and extract JSON
-      const cleanedText = jsonText.replace(/^\/\*.*?\*\/\s*/, '');
+      let cleanedText = jsonText.replace(/^\/\*.*?\*\/\s*/, '');
       
       // Try function call format again after prefix removal (both DataTable and Query)
       const cleanFunctionMatch = cleanedText.match(/google\.visualization\.(?:DataTable|Query)\.setResponse\((.+)\);?\s*$/);
@@ -131,7 +73,7 @@ export class GoogleDocsParser {
         try {
           console.log('Attempting direct JSON parse');
           jsonData = JSON.parse(cleanedText);
-        } catch {
+        } catch (e) {
           console.error('All parsing attempts failed');
           console.log('Cleaned text preview:', cleanedText.substring(0, 500));
           throw new Error(`Invalid Google Sheets JSON response format. Unable to parse response.`);
@@ -148,7 +90,7 @@ export class GoogleDocsParser {
   }
 
   // Convert Google Sheets JSON table to rows array
-  static convertJsonToRows(table: GoogleSheetsTable): string[][] {
+  static convertJsonToRows(table: any): string[][] {
     const rows: string[][] = [];
     
     if (!table.rows || table.rows.length === 0) {
@@ -184,21 +126,11 @@ export class GoogleDocsParser {
   }
 
   // Convert JSON table data to our internal format
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars  
-  static parseJsonData(table: GoogleSheetsTable, sheetType: 'unreleased' | 'best' = 'unreleased'): ParsedJsonData {
+  static parseJsonData(table: any, sheetType: 'unreleased' | 'best' | 'grails' | 'worst' = 'unreleased'): any {
     const rows = this.convertJsonToRows(table);
     
     if (rows.length === 0) {
-      return { 
-        metadata: {}, 
-        columnMap: {}, 
-        headers: [], 
-        eras: [], 
-        tracks: [], 
-        statistics: {}, 
-        totalRows: 0, 
-        dataRows: 0 
-      };
+      return { sheets: [], metadata: {} };
     }
     
     console.log('First few rows for analysis:');
@@ -221,6 +153,7 @@ export class GoogleDocsParser {
         cell.toLowerCase().trim() === 'track name' ||
         cell.toLowerCase().trim() === 'song name'
       ));
+      const hasQuality = row.some(cell => cell && cell.toLowerCase().includes('quality'));
       
       // If we find a row with these key columns, it's likely the header
       if (hasEra && hasName) {
@@ -251,7 +184,7 @@ export class GoogleDocsParser {
       // The data might be structured differently - let's check the column labels from the API
       if (table.cols && table.cols.length > 0) {
         console.log('Using column labels from API response');
-        headers = table.cols.map((col: GoogleSheetsColumn) => {
+        headers = table.cols.map((col: any) => {
           // Extract the actual column name from the label
           let label = col.label || col.id || '';
           
@@ -259,7 +192,7 @@ export class GoogleDocsParser {
           if (label.includes('\n')) {
             // Split by newline and take the first clean part
             const parts = label.split('\n');
-            label = parts.find((part: string) => part.trim().length > 0 && part.trim().length < 50) || parts[0];
+            label = parts.find(part => part.trim().length > 0 && part.trim().length < 50) || parts[0];
           }
           
           return label.trim();
@@ -278,7 +211,6 @@ export class GoogleDocsParser {
     console.log('Header row index:', headerRowIndex);
     
     // Extract metadata from the API column labels or early rows
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const metadata: any = {
       title: '',
       artistName: '',
@@ -301,7 +233,7 @@ export class GoogleDocsParser {
         
         // Extract artist name from tracker title
         if (cell.toLowerCase().includes('tracker')) {
-          const cleanTitle = cell.trim()
+          let cleanTitle = cell.trim()
             .replace(/^\d{1,2}\.\d{1,2}\s+/i, '') // Remove date prefixes
             .replace(/^copy\s+of\s+/i, '') // Remove "Copy of"
             .replace(/\s*-\s*Google\s+(?:preglednice|Spreadsheets?|Sheets?)/i, ''); // Remove Google suffixes
@@ -374,9 +306,7 @@ export class GoogleDocsParser {
     console.log('Column mapping:', columnMap);
     
     // Process track data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tracks: any[] = [];
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const eras = new Map<string, any>();
     let currentEra = '';
     
@@ -454,7 +384,7 @@ export class GoogleDocsParser {
       }
       
       // Check if this is a sub-era row
-      // Sub-eras should only be detected for explicit patterns, not timeline entries
+      // Pattern: First column says "Sub-era:" and second column has the sub-era name
       const isSubEraRow = firstCol && 
                          (firstCol.toLowerCase().includes('sub-era') || firstCol.toLowerCase() === 'another:') &&
                          secondCol && 
@@ -462,7 +392,7 @@ export class GoogleDocsParser {
                          !secondCol.includes('http'); // Not a URL
       
       if (isSubEraRow) {
-        // This is an explicit sub-era - treat it as a separate era with parent relationship
+        // This is a sub-era - treat it as a separate era but with a parent relationship
         let subEraName = secondCol.trim();
         
         // Clean up the sub-era name
@@ -477,7 +407,7 @@ export class GoogleDocsParser {
         }
         
         currentEra = subEraName;
-        console.log(`Found explicit sub-era: ${currentEra}`);
+        console.log(`Found sub-era: ${currentEra}`);
         
         // Extract timeline info from other columns for sub-era
         let subEraNotes = '';
@@ -500,7 +430,6 @@ export class GoogleDocsParser {
         
         eras.set(currentEra, {
           name: currentEra,
-          alternateNames: [],
           description: subEraDescription,
           notes: subEraNotes,
           picture: '',
@@ -519,13 +448,27 @@ export class GoogleDocsParser {
                            !secondCol.includes('http'); // Not a URL
       
       if (isMetadataRow) {
-        // Parse the era name to extract main name, alternate names, and description
-        const eraNameInfo = GoogleDocsParser.parseEraName(secondCol);
+        // The actual era name is in the second column
+        // Clean up the era name by removing alternate titles in parentheses and handling newlines
+        let cleanEraName = secondCol;
         
-        currentEra = eraNameInfo.mainName;
+        // Split by newlines and take the first non-empty line as the main title
+        if (cleanEraName.includes('\n')) {
+          const lines = cleanEraName.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+          cleanEraName = lines[0]; // Take the first line as the main era name
+          
+          // If there are additional lines that aren't just alternate titles, they might be descriptions
+          const additionalInfo = lines.slice(1).filter(line => 
+            !line.match(/^\([^)]*\)$/) // Not just parenthetical content
+          ).join(' ');
+        }
+        
+        // Remove standalone parenthetical alternate titles from the end
+        cleanEraName = cleanEraName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        
+        currentEra = cleanEraName;
         console.log(`Found era with metadata: ${currentEra}`);
         console.log(`Original era text: ${secondCol}`);
-        console.log(`Alternate names: ${eraNameInfo.alternateNames.join(', ')}`);
         console.log(`Metadata: ${firstCol}`);
         
         // Parse metadata from first column
@@ -567,17 +510,15 @@ export class GoogleDocsParser {
           const existingEra = eras.get(currentEra)!;
           eras.set(currentEra, {
             ...existingEra,
-            description: eraNameInfo.description || eraDescription || existingEra.description,
+            description: eraDescription || existingEra.description,
             notes: eraNotes || existingEra.notes,
             picture: eraImage || existingEra.picture,
-            alternateNames: eraNameInfo.alternateNames,
             metadata: metadata
           });
         } else {
           eras.set(currentEra, {
             name: currentEra,
-            alternateNames: eraNameInfo.alternateNames,
-            description: eraNameInfo.description || eraDescription,
+            description: eraDescription,
             notes: eraNotes,
             picture: eraImage,
             metadata: metadata,
@@ -600,19 +541,16 @@ export class GoogleDocsParser {
       
       // Check if this is an era row - fallback for eras without metadata
       if (isEraName && !secondCol) {
-        // Parse the era name to extract main name and alternate names
-        const eraNameInfo = GoogleDocsParser.parseEraName(firstCol);
-        currentEra = eraNameInfo.mainName;
+        currentEra = firstCol;
         console.log(`Found era without metadata: ${currentEra}`);
         
-        // Extract era image, description, and notes from other columns
+        // Extract era image and description from other columns
         let eraImage = '';
         let eraDescription = '';
-        let eraNotes = '';
         
         for (let j = 2; j < row.length; j++) {
           const cell = row[j];
-          if (!cell || !cell.trim()) continue;
+          if (!cell) continue;
           
           // Look for image URLs
           const imageMatch = cell.match(/https?:\/\/[^\s"'<>()]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)/i) ||
@@ -620,48 +558,17 @@ export class GoogleDocsParser {
                            cell.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
           if (imageMatch && !eraImage) {
             eraImage = imageMatch[0];
-            continue;
           }
           
-          // Look for timeline/date information (notes)
-          if (cell.includes('(') && cell.includes(')')) {
-            const hasDatePattern = cell.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)|(\?\?\?\?\?\?\?\?)/);
-            if (hasDatePattern) {
-              if (!eraNotes) {
-                eraNotes = cell;
-              } else {
-                eraNotes += '\n' + cell;
-              }
-              continue;
-            }
-          }
-          
-          // Use remaining non-URL text as description
-          if (!cell.includes('http') && cell.length > 5) {
-            if (!eraDescription) {
-              eraDescription = cell;
-            } else {
-              // If we already have a description, add this as notes
-              if (!eraNotes) {
-                eraNotes = cell;
-              } else {
-                eraNotes += '\n' + cell;
-              }
-            }
+          // Use non-URL text as description
+          if (!cell.includes('http') && cell.length > 10 && !eraDescription) {
+            eraDescription = cell;
           }
         }
         
-        // Combine description from era name and additional columns
-        const finalDescription = eraNameInfo.description || eraDescription || '';
-        const finalNotes = eraNotes || notesValue || '';
-        
-        console.log(`Era "${currentEra}" - Description: "${finalDescription}", Notes: "${finalNotes}"`);
-        
         eras.set(currentEra, {
           name: currentEra,
-          alternateNames: eraNameInfo.alternateNames,
-          description: finalDescription,
-          notes: finalNotes,
+          description: eraDescription || notesValue,
           picture: eraImage,
           tracks: []
         });
@@ -673,31 +580,8 @@ export class GoogleDocsParser {
       if (currentEra && eras.has(currentEra) && firstCol && !secondCol) {
         const currentEraData = eras.get(currentEra)!;
         
-        // Check if this looks like a sub-era timeline entry (like "Black Friday" with dates)
-        const hasTimelineInfo = row.some((cell, idx) => idx > 1 && cell && cell.includes('(') && cell.includes(')'));
-        
-        if (hasTimelineInfo) {
-          // This is a timeline entry - combine the sub-era name with timeline info
-          let timelineEntry = firstCol;
-          
-          // Add timeline information from other columns
-          for (let j = 2; j < row.length; j++) {
-            const cell = row[j] || '';
-            if (cell.trim() && (cell.includes('(') && cell.includes(')'))) {
-              timelineEntry += '\n' + cell;
-            }
-          }
-          
-          if (!currentEraData.notes) {
-            currentEraData.notes = timelineEntry;
-          } else {
-            currentEraData.notes += '\n' + timelineEntry;
-          }
-          
-          console.log(`Added timeline entry to ${currentEra}: ${firstCol}`);
-        }
         // If it's timeline info, add to notes
-        else if (firstCol.toLowerCase().includes('timeline') || 
+        if (firstCol.toLowerCase().includes('timeline') || 
             (firstCol.includes('(') && firstCol.includes(')')) ||
             firstCol.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)/) || 
             firstCol.match(/\(\?\?\?\?\?\?\?\?\)/)) {
@@ -761,7 +645,6 @@ export class GoogleDocsParser {
           if (!eras.has(currentEra)) {
             eras.set(currentEra, {
               name: currentEra,
-              alternateNames: [],
               description: '',
               picture: '',
               tracks: []
@@ -770,12 +653,9 @@ export class GoogleDocsParser {
         }
         
         // Create track object using the second column as the name
-        const parsedTitle = GoogleDocsParser.parseTrackTitle(secondCol);
         const track = {
           era: trackEra,
           name: secondCol,
-          title: parsedTitle,
-          rawName: secondCol,
           notes: notesValue,
           trackLength: trackLengthValue,
           fileDate: fileDateValue,
@@ -785,9 +665,13 @@ export class GoogleDocsParser {
           type: typeValue,
           links: linksValue ? linksValue.split(/[,\n]/).map(link => link.trim()).filter(link => link) : [],
           isSpecial: secondCol.includes('🏆') || secondCol.includes('✨') || secondCol.includes('⭐'),
-          specialType: secondCol.includes('⭐') ? '⭐' : 
+          isWorst: secondCol.includes('🗑️'),
+          isGrail: secondCol.includes('💎') || notesValue.toLowerCase().includes('grail') || qualityValue.toLowerCase().includes('snippet') || availableLengthValue.toLowerCase().includes('snippet'),
+          specialType: secondCol.includes('🏆') ? '🏆' : 
                       secondCol.includes('✨') ? '✨' : 
-                      secondCol.includes('🏆') ? '🏆' : undefined
+                      secondCol.includes('⭐') ? '⭐' : 
+                      secondCol.includes('🗑️') ? '🗑️' : 
+                      secondCol.includes('💎') ? '💎' : undefined
         };
         
         console.log(`Adding track: ${secondCol} to era: ${trackEra}`);
@@ -801,7 +685,6 @@ export class GoogleDocsParser {
           // Create the era if it doesn't exist
           eras.set(trackEra, {
             name: trackEra,
-            alternateNames: [],
             description: '',
             picture: '',
             tracks: [track]
@@ -812,16 +695,12 @@ export class GoogleDocsParser {
     
     console.log(`Found ${eras.size} eras with ${tracks.length} total tracks`);
     
-    // Parse statistics from the end of the sheet
-    const statistics = GoogleDocsParser.parseStatistics(rows, mainDataEnd);
-    
     return {
       metadata,
       columnMap,
       headers,
       eras: Array.from(eras.values()),
       tracks,
-      statistics,
       totalRows: rows.length,
       dataRows: mainDataEnd - headerRowIndex - 1
     };
@@ -961,58 +840,7 @@ export class GoogleDocsParser {
     };
   }
 
-  // Parse era name and extract alternate names
-  static parseEraName(rawEraName: string): { mainName: string; alternateNames: string[]; description?: string } {
-    if (!rawEraName) {
-      return { mainName: 'Unknown Era', alternateNames: [] };
-    }
-
-    let workingName = rawEraName.trim();
-    const alternateNames: string[] = [];
-    let description: string | undefined;
-
-    // Handle multiline era names
-    if (workingName.includes('\n')) {
-      const lines = workingName.split('\n').map(line => line.trim()).filter(line => line.length > 0);
-      workingName = lines[0]; // Take the first line as the main era name
-      
-      // Additional lines that aren't parenthetical might be descriptions
-      const additionalInfo = lines.slice(1).filter(line => 
-        !line.match(/^\([^)]*\)$/) // Not just parenthetical content
-      ).join(' ');
-      
-      if (additionalInfo.trim()) {
-        description = additionalInfo.trim();
-      }
-    }
-
-    // Extract alternate names from parentheses
-    const parenMatches = workingName.match(/\(([^)]+)\)/g);
-    if (parenMatches) {
-      for (const parenMatch of parenMatches) {
-        const content = parenMatch.slice(1, -1); // Remove parentheses
-        
-        // Check if it contains commas (multiple alternate names)
-        if (content.includes(',')) {
-          const altNames = content.split(',').map(name => name.trim()).filter(name => name.length > 0);
-          alternateNames.push(...altNames);
-        } else if (content.trim().length > 0) {
-          alternateNames.push(content.trim());
-        }
-      }
-    }
-
-    // Remove all parenthetical content to get the main name
-    const mainName = workingName.replace(/\s*\([^)]*\)/g, '').trim();
-
-    return {
-      mainName: mainName || 'Unknown Era',
-      alternateNames,
-      description
-    };
-  }
   // Parse era metadata string to extract file counts
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static parseEraMetadata(metadataString: string): any {
     const metadata = {
       ogFiles: 0,
@@ -1051,147 +879,6 @@ export class GoogleDocsParser {
     return metadata;
   }
 
-  // Parse statistics from the footer section of the spreadsheet
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  static parseStatistics(rows: string[][], startIndex: number): any {
-    const statistics = {
-      links: {
-        total: 0,
-        missing: 0,
-        sourcesNeeded: 0,
-        notAvailable: 0
-      },
-      quality: {
-        lossless: 0,
-        cdQuality: 0,
-        highQuality: 0,
-        lowQuality: 0,
-        recordings: 0,
-        notAvailable: 0
-      },
-      availability: {
-        totalFull: 0,
-        ogFiles: 0,
-        stemBounces: 0,
-        full: 0,
-        tagged: 0,
-        partial: 0,
-        snippets: 0,
-        unavailable: 0
-      },
-      highlighted: {
-        bestOf: 0,
-        special: 0,
-        wanted: 0
-      }
-    };
-
-    // Look for statistics in the footer rows
-    for (let i = startIndex; i < rows.length; i++) {
-      const row = rows[i];
-      if (!row || row.length === 0) continue;
-
-      for (const cell of row) {
-        if (!cell) continue;
-
-        // Parse links statistics
-        const linksMatch = cell.match(/(\d+)\s+Total\s+Links/i);
-        if (linksMatch) {
-          statistics.links.total = parseInt(linksMatch[1]);
-        }
-        const missingLinksMatch = cell.match(/(\d+)\s+Missing\s+Links/i);
-        if (missingLinksMatch) {
-          statistics.links.missing = parseInt(missingLinksMatch[1]);
-        }
-        const sourcesMatch = cell.match(/(\d+)\s+Sources\s+Needed/i);
-        if (sourcesMatch) {
-          statistics.links.sourcesNeeded = parseInt(sourcesMatch[1]);
-        }
-        const notAvailableLinksMatch = cell.match(/(\d+)\s+Not\s+Avaliable/i);
-        if (notAvailableLinksMatch) {
-          statistics.links.notAvailable = parseInt(notAvailableLinksMatch[1]);
-        }
-
-        // Parse quality statistics
-        const losslessMatch = cell.match(/(\d+)\s+Lossless/i);
-        if (losslessMatch) {
-          statistics.quality.lossless = parseInt(losslessMatch[1]);
-        }
-        const cdQualityMatch = cell.match(/(\d+)\s+CD\s+Quality/i);
-        if (cdQualityMatch) {
-          statistics.quality.cdQuality = parseInt(cdQualityMatch[1]);
-        }
-        const highQualityMatch = cell.match(/(\d+)\s+High\s+Quality/i);
-        if (highQualityMatch) {
-          statistics.quality.highQuality = parseInt(highQualityMatch[1]);
-        }
-        const lowQualityMatch = cell.match(/(\d+)\s+Low\s+Quality/i);
-        if (lowQualityMatch) {
-          statistics.quality.lowQuality = parseInt(lowQualityMatch[1]);
-        }
-        const recordingsMatch = cell.match(/(\d+)\s+Recordings/i);
-        if (recordingsMatch) {
-          statistics.quality.recordings = parseInt(recordingsMatch[1]);
-        }
-        const notAvailableQualityMatch = cell.match(/(\d+)\s+Not\s+Available/i);
-        if (notAvailableQualityMatch && !cell.includes('Links')) {
-          statistics.quality.notAvailable = parseInt(notAvailableQualityMatch[1]);
-        }
-
-        // Parse availability statistics
-        const totalFullMatch = cell.match(/(\d+)\s+Total\s+Full/i);
-        if (totalFullMatch) {
-          statistics.availability.totalFull = parseInt(totalFullMatch[1]);
-        }
-        const ogFilesMatch = cell.match(/(\d+)\s+OG\s+Files/i);
-        if (ogFilesMatch) {
-          statistics.availability.ogFiles = parseInt(ogFilesMatch[1]);
-        }
-        const stemBouncesMatch = cell.match(/(\d+)\s+Stem\s+Bounces/i);
-        if (stemBouncesMatch) {
-          statistics.availability.stemBounces = parseInt(stemBouncesMatch[1]);
-        }
-        const fullMatch = cell.match(/(\d+)\s+Full(?!\s)/i);
-        if (fullMatch && !cell.includes('Total')) {
-          statistics.availability.full = parseInt(fullMatch[1]);
-        }
-        const taggedMatch = cell.match(/(\d+)\s+Tagged/i);
-        if (taggedMatch) {
-          statistics.availability.tagged = parseInt(taggedMatch[1]);
-        }
-        const partialMatch = cell.match(/(\d+)\s+Partial/i);
-        if (partialMatch) {
-          statistics.availability.partial = parseInt(partialMatch[1]);
-        }
-        const snippetsMatch = cell.match(/(\d+)\s+Snippets/i);
-        if (snippetsMatch) {
-          statistics.availability.snippets = parseInt(snippetsMatch[1]);
-        }
-        const unavailableMatch = cell.match(/(\d+)\s+Unavailable/i);
-        if (unavailableMatch) {
-          statistics.availability.unavailable = parseInt(unavailableMatch[1]);
-        }
-
-        // Parse highlighted statistics
-        const bestOfMatch = cell.match(/⭐\s+(\d+)\s+Best\s+Of/i);
-        if (bestOfMatch) {
-          statistics.highlighted.bestOf = parseInt(bestOfMatch[1]);
-        }
-        const specialMatch = cell.match(/✨\s+(\d+)\s+Special/i);
-        if (specialMatch) {
-          statistics.highlighted.special = parseInt(specialMatch[1]);
-        }
-        const wantedMatch = cell.match(/🥇\s+(\d+)\s+Wanted/i);
-        if (wantedMatch) {
-          statistics.highlighted.wanted = parseInt(wantedMatch[1]);
-        }
-      }
-    }
-
-    console.log('Parsed statistics:', statistics);
-    return statistics;
-  }
-
   /**
    * Parse album art from the Art tab of the Google Sheets
    */
@@ -1222,18 +909,11 @@ export class GoogleDocsParser {
           });
           
           const jsonData = GoogleDocsParser.parseGoogleSheetsJson(response.data);
-          
-          // Type guard to handle the response structure
-          let table: GoogleSheetsTable;
-          if ('table' in jsonData && jsonData.table) {
-            table = jsonData.table;
-          } else if ('cols' in jsonData && 'rows' in jsonData) {
-            table = jsonData as GoogleSheetsTable;
-          } else {
+          if (!jsonData || !jsonData.table) {
             continue;
           }
           
-          const rows = GoogleDocsParser.convertJsonToRows(table);
+          const rows = GoogleDocsParser.convertJsonToRows(jsonData.table);
           if (rows.length === 0) {
             continue;
           }
@@ -1321,122 +1001,8 @@ export class GoogleDocsParser {
     return docId;
   }
 
-  // Consolidate similar eras (e.g., "Donda 2" and "Donda 2 (2025)" should be combined)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  static consolidateEras(eras: any[]): any[] {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const consolidatedEras = new Map<string, any>();
-    
-    for (const era of eras) {
-      // Normalize the era name for comparison
-      const normalizedName = era.name.trim();
-      
-      // Remove year suffixes in parentheses for comparison
-      const baseNameMatch = normalizedName.match(/^(.+?)\s*\(\d{4}\)\s*$/);
-      const baseName = baseNameMatch ? baseNameMatch[1].trim() : normalizedName;
-      
-      // Special handling for Donda 2 variants
-      if (baseName.toLowerCase() === 'donda 2') {
-        const targetKey = 'Donda 2';
-        
-        if (consolidatedEras.has(targetKey)) {
-          // Merge tracks into existing Donda 2 era
-          const existingEra = consolidatedEras.get(targetKey)!;
-          existingEra.tracks.push(...era.tracks);
-          
-          // Combine descriptions and notes
-          if (era.description && !existingEra.description.includes(era.description)) {
-            existingEra.description = existingEra.description 
-              ? `${existingEra.description}\n${era.description}` 
-              : era.description;
-          }
-          
-          if (era.notes && !existingEra.notes.includes(era.notes)) {
-            existingEra.notes = existingEra.notes 
-              ? `${existingEra.notes}\n${era.notes}` 
-              : era.notes;
-          }
-          
-          // Combine alternate names for Donda 2
-          if (era.alternateNames && era.alternateNames.length > 0) {
-            existingEra.alternateNames = existingEra.alternateNames || [];
-            for (const altName of era.alternateNames) {
-              if (!existingEra.alternateNames.includes(altName)) {
-                existingEra.alternateNames.push(altName);
-              }
-            }
-          }
-          
-          // Use the first non-empty picture
-          if (!existingEra.picture && era.picture) {
-            existingEra.picture = era.picture;
-          }
-          
-          console.log(`Consolidated "${era.name}" into "${targetKey}"`);
-        } else {
-          // Create new consolidated era with the base name
-          consolidatedEras.set(targetKey, {
-            ...era,
-            name: targetKey
-          });
-        }
-      } else {
-        // For other eras, check if we already have a similar base name
-        let existingKey = null;
-        for (const [key] of consolidatedEras) {
-          const existingBaseName = key.match(/^(.+?)\s*\(\d{4}\)\s*$/)?.[1]?.trim() || key;
-          if (existingBaseName.toLowerCase() === baseName.toLowerCase()) {
-            existingKey = key;
-            break;
-          }
-        }
-        
-        if (existingKey) {
-          // Merge into existing era
-          const existingEra = consolidatedEras.get(existingKey)!;
-          existingEra.tracks.push(...era.tracks);
-          
-          // Combine descriptions and notes
-          if (era.description && !existingEra.description.includes(era.description)) {
-            existingEra.description = existingEra.description 
-              ? `${existingEra.description}\n${era.description}` 
-              : era.description;
-          }
-          
-          if (era.notes && !existingEra.notes.includes(era.notes)) {
-            existingEra.notes = existingEra.notes 
-              ? `${existingEra.notes}\n${era.notes}` 
-              : era.notes;
-          }
-          
-          // Combine alternate names
-          if (era.alternateNames && era.alternateNames.length > 0) {
-            existingEra.alternateNames = existingEra.alternateNames || [];
-            for (const altName of era.alternateNames) {
-              if (!existingEra.alternateNames.includes(altName)) {
-                existingEra.alternateNames.push(altName);
-              }
-            }
-          }
-          
-          // Use the first non-empty picture
-          if (!existingEra.picture && era.picture) {
-            existingEra.picture = era.picture;
-          }
-          
-          console.log(`Consolidated "${era.name}" into "${existingKey}"`);
-        } else {
-          // No similar era found, keep as is
-          consolidatedEras.set(era.name, era);
-        }
-      }
-    }
-    
-    return Array.from(consolidatedEras.values());
-  }
-
   // Main parsing method with sheet selection using JSON API
-  static async parseGoogleDoc(googleDocsUrl: string, sheetType: 'unreleased' | 'best' = 'unreleased'): Promise<Artist> {
+  static async parseGoogleDoc(googleDocsUrl: string, sheetType: 'unreleased' | 'best' | 'grails' | 'worst' = 'unreleased'): Promise<Artist> {
     try {
       // Use the JSON API instead of CSV
       const jsonUrl = GoogleDocsParser.getJsonUrl(googleDocsUrl);
@@ -1457,26 +1023,12 @@ export class GoogleDocsParser {
       console.log('Received JSON response, parsing...');
       
       // Parse Google Sheets JSON response
-      const jsonResponse = GoogleDocsParser.parseGoogleSheetsJson(response.data);
-      
-      // Type guard to handle the response structure
-      let table: GoogleSheetsTable;
-      if ('table' in jsonResponse && jsonResponse.table) {
-        table = jsonResponse.table;
-      } else if ('cols' in jsonResponse && 'rows' in jsonResponse) {
-        table = jsonResponse as GoogleSheetsTable;
-      } else {
-        throw new Error('Invalid Google Sheets JSON structure');
-      }
+      const table = GoogleDocsParser.parseGoogleSheetsJson(response.data);
       
       // Convert to our internal JSON format
       const jsonData = GoogleDocsParser.parseJsonData(table, sheetType);
       
       console.log(`Parsed data: ${jsonData.eras.length} eras, ${jsonData.tracks.length} tracks`);
-      
-      // Consolidate similar eras (e.g., "Donda 2" and "Donda 2 (2025)")
-      jsonData.eras = GoogleDocsParser.consolidateEras(jsonData.eras);
-      console.log(`After consolidation: ${jsonData.eras.length} eras`);
       
       // Parse album art from the Art tab
       console.log('Fetching album art...');
@@ -1484,35 +1036,30 @@ export class GoogleDocsParser {
       console.log(`Found art for ${artMap.size} albums`);
       
       // Convert to Artist format
-      const albumMap = new Map<string, { tracks: Track[], picture?: string, description?: string, notes?: string, metadata?: EraMetadata }>();
+      const albumMap = new Map<string, { tracks: Track[], picture?: string, description?: string, notes?: string, metadata?: any }>();
       
       // Process eras and tracks
       for (const era of jsonData.eras) {
-        if (!era.tracks || !Array.isArray(era.tracks)) {
-          continue;
-        }
-        
-        const tracks: Track[] = era.tracks.map((track: unknown, index: number) => {
-          const trackData = track as Record<string, unknown>;
-          const parsedTitle = GoogleDocsParser.parseTrackTitle(String(trackData.name || ''));
+        const tracks: Track[] = era.tracks.map((track: any, index: number) => {
+          const parsedTitle = GoogleDocsParser.parseTrackTitle(track.name);
           
           return {
-            id: `${era.name}-${trackData.name}-${index}`,
+            id: `${era.name}-${track.name}-${index}`,
             era: era.name,
             title: parsedTitle,
-            rawName: String(trackData.name || ''),
-            notes: String(trackData.notes || ''),
+            rawName: track.name,
+            notes: track.notes,
             discordLink: jsonData.metadata.discordLink || '',
-            trackLength: String(trackData.trackLength || ''),
-            fileDate: String(trackData.fileDate || ''),
-            leakDate: String(trackData.leakDate || ''),
-            availableLength: String(trackData.availableLength || ''),
-            quality: String(trackData.quality || ''),
-            links: Array.isArray(trackData.links) ? trackData.links.map((link: unknown) => ({ url: String(link), type: 'audio' as const })) : [],
-            isSpecial: Boolean(trackData.isSpecial),
-            specialType: (['🏆', '✨', '⭐'].includes(String(trackData.specialType))) ? 
-              String(trackData.specialType) as '🏆' | '✨' | '⭐' : 
-              undefined
+            trackLength: track.trackLength,
+            fileDate: track.fileDate,
+            leakDate: track.leakDate,
+            availableLength: track.availableLength,
+            quality: track.quality,
+            links: track.links ? track.links.map((link: string) => ({ url: link, type: 'audio' as const })) : [],
+            isSpecial: track.isSpecial,
+            isWorst: track.isWorst,
+            isGrail: track.isGrail,
+            specialType: track.specialType
           };
         });
         
@@ -1521,7 +1068,7 @@ export class GoogleDocsParser {
           picture: artMap.get(era.name) || era.picture || '',
           description: era.description,
           notes: era.notes,
-          metadata: era.metadata as unknown as EraMetadata
+          metadata: era.metadata
         });
       }
       
@@ -1529,44 +1076,42 @@ export class GoogleDocsParser {
       if (sheetType !== 'unreleased') {
         console.log(`Applying filter for sheet type: ${sheetType}`);
         
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const filteredAlbumMap = new Map<string, { tracks: Track[], picture?: string, description?: string, notes?: string, metadata?: any }>();
         
         for (const [eraName, eraData] of albumMap.entries()) {
           const filteredTracks = eraData.tracks.filter(track => {
+            let shouldInclude = false;
+            
             switch (sheetType) {
               case 'best':
-                return track.isSpecial;
+              case 'grails':
+                shouldInclude = track.isSpecial;
+                break;
+              
+              case 'worst':
+                shouldInclude = track.isWorst || 
+                       track.quality.toLowerCase().includes('low quality') ||
+                       track.quality.toLowerCase().includes('demo') ||
+                       track.quality.toLowerCase().includes('128kbps') ||
+                       track.notes.toLowerCase().includes('worst') ||
+                       track.notes.toLowerCase().includes('demo') ||
+                       track.specialType === '�️';
+                break;
+                       track.notes.toLowerCase().includes('demo') ||
+                       track.specialType === '🗑️';
+                break;
+              
               default:
-                return true;
+                shouldInclude = true;
             }
+            
+            return shouldInclude;
           });
           
           if (filteredTracks.length > 0) {
-            // Sort special tracks by priority: ⭐ > ✨ > 🏆
-            const sortedFilteredTracks = filteredTracks.sort((a, b) => {
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const getPriority = (track: any) => {
-                if (track.specialType === '⭐') return 3;
-                if (track.specialType === '✨') return 2;
-                if (track.specialType === '🏆') return 1;
-                return 0;
-              };
-              
-              const aPriority = getPriority(a);
-              const bPriority = getPriority(b);
-              
-              if (aPriority !== bPriority) {
-                return bPriority - aPriority; // Higher priority first
-              }
-              
-              // If same priority, sort alphabetically
-              return (a.title?.main || a.rawName || '').localeCompare(b.title?.main || b.rawName || '');
-            });
-            
             filteredAlbumMap.set(eraName, {
               ...eraData,
-              tracks: sortedFilteredTracks
+              tracks: filteredTracks
             });
           }
         }
@@ -1611,43 +1156,19 @@ export class GoogleDocsParser {
             fullFiles: 0,
             taggedFiles: 0,
             partialFiles: 0,
-            snippetFiles: 0,
-            stemBounceFiles: 0,
-            unavailableFiles: 0
-          },
-          notes: albumData.notes || albumData.description || '',
-          image: albumData.picture || undefined
-        }));
-
-      // Calculate filtered statistics if we're on a filtered sheet type
-      let finalStatistics = jsonData.statistics;
-      if (sheetType === 'best') {
-        // Calculate stats from the filtered tracks only
-        const allFilteredTracks = albums.flatMap(album => album.tracks);
-        
-        const specialTracksCount = allFilteredTracks.filter(track => track.isSpecial).length;
-        const bestOfCount = allFilteredTracks.filter(track => track.specialType === '⭐').length;
-        const specialCount = allFilteredTracks.filter(track => track.specialType === '✨').length;
-        const wantedCount = allFilteredTracks.filter(track => track.specialType === '🏆').length;
-        
-        // Update the highlighted statistics to reflect only the filtered tracks
-        finalStatistics = {
-          ...jsonData.statistics,
-          highlighted: {
-            bestOf: bestOfCount,
-            special: specialCount,
-            wanted: wantedCount
-          }
-        };
-        
-        console.log(`Updated statistics for ${sheetType} sheet - Best Of: ${bestOfCount}, Special: ${specialCount}, Wanted: ${wantedCount}`);
-      }
+          snippetFiles: 0,
+          stemBounceFiles: 0,
+          unavailableFiles: 0
+        },
+        notes: albumData.notes || albumData.description || '',
+        image: albumData.picture || undefined
+      }));
 
       return {
         name: jsonData.metadata.artistName || 'Unknown Artist',
         albums,
         updates: undefined, // We'll extract this from other parsing if needed
-        statistics: finalStatistics as unknown as TrackerStatistics, // Use calculated statistics based on filtered data
+        statistics: undefined, // We'll extract this from other parsing if needed
         lastUpdated: new Date().toISOString(),
       };
       

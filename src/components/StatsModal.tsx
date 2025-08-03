@@ -29,22 +29,22 @@ export default function StatsModal({ isOpen, onClose, eraName, metadata }: Stats
   return (
     <Portal>
       <div 
-        className="fixed inset-0 flex items-center justify-center p-4"
+        className="fixed inset-0 flex items-center justify-center p-4 z-50"
         style={{ zIndex: 10000 }}
       >
         {/* Backdrop */}
         <div 
-          className="absolute inset-0 bg-black bg-opacity-50"
+          className="absolute inset-0 bg-black bg-opacity-50 backdrop-blur-sm"
           onClick={onClose}
         />
         
         {/* Modal Content */}
         <div 
-          className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[70vh] overflow-hidden"
+          className="relative bg-white dark:bg-gray-800 rounded-lg shadow-xl max-w-md w-full max-h-[80vh] flex flex-col overflow-hidden"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* Header */}
-          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between">
+          {/* Header - Fixed */}
+          <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 flex items-center justify-between flex-shrink-0">
             <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
               {eraName} Statistics
             </h2>
@@ -59,8 +59,8 @@ export default function StatsModal({ isOpen, onClose, eraName, metadata }: Stats
             </button>
           </div>
 
-          {/* Content */}
-          <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(70vh - 120px)' }}>
+          {/* Content - Scrollable */}
+          <div className="flex-1 p-4 overflow-y-auto overscroll-contain" style={{ maxHeight: 'calc(80vh - 120px)' }}>
             {/* Total Summary */}
             <div className="mb-4 p-3 bg-gray-50 dark:bg-gray-700 rounded-lg">
               <div className="text-center">

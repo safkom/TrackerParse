@@ -4,7 +4,7 @@ import { Artist, Album, Track, TrackTitle, TrackLink, EraMetadata, TrackerConfig
 
 export class ImprovedParser {
   private static lastRequestTime = 0;
-  private static readonly MIN_REQUEST_INTERVAL = 1000; // 1 second between requests
+  private static readonly MIN_REQUEST_INTERVAL = 500; // Reduced from 1000ms for faster loading
   
   private static defaultConfig: TrackerConfig = {
     name: '',
@@ -199,6 +199,23 @@ export class ImprovedParser {
 
       return { url, label, type };
     });
+  }
+
+  static parseTrackLinksWithDiscord(linksText: string, fullRowText: string): TrackLink[] {
+    // Parse regular links
+    const links = this.parseTrackLinks(linksText);
+    
+    // Check for Discord links in the full row text
+    const discordLink = this.extractDiscordLink(fullRowText);
+    if (discordLink) {
+      links.push({
+        url: discordLink,
+        label: 'Discord',
+        type: 'social' as const
+      });
+    }
+    
+    return links;
   }
 
   // Extract Discord link from notes
@@ -584,13 +601,15 @@ export class ImprovedParser {
             title: this.parseTrackTitle(nameCell),
             rawName: nameCell,
             notes: columnMap['notes'] >= 0 ? (row[columnMap['notes']] || '') : '',
-            discordLink: this.extractDiscordLink(row.join(' ')),
             trackLength: columnMap['trackLength'] >= 0 ? (row[columnMap['trackLength']] || '') : '',
             fileDate: columnMap['fileDate'] >= 0 ? (row[columnMap['fileDate']] || '') : '',
             leakDate: columnMap['leakDate'] >= 0 ? (row[columnMap['leakDate']] || '') : '',
             availableLength: columnMap['availableLength'] >= 0 ? (row[columnMap['availableLength']] || '') : '',
             quality: columnMap['quality'] >= 0 ? (row[columnMap['quality']] || '') : '',
-            links: this.parseTrackLinks(columnMap['links'] >= 0 ? (row[columnMap['links']] || '') : ''),
+            links: this.parseTrackLinksWithDiscord(
+              columnMap['links'] >= 0 ? (row[columnMap['links']] || '') : '',
+              row.join(' ')
+            ),
             isSpecial: nameCell.includes('🏆') || nameCell.includes('✨'),
             specialType: nameCell.includes('🏆') ? '🏆' : nameCell.includes('✨') ? '✨' : undefined
           };

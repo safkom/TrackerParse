@@ -5,20 +5,22 @@ import { Artist as ArtistType, Track } from '@/types';
 import Album from './Album';
 import TrackList from './TrackList';
 import ExportButton from './ExportButton';
+import { SheetType } from './SheetNavigation';
 
 interface ArtistProps {
   artist: ArtistType;
   onPlayTrack?: (track: Track) => void;
   docId?: string;
   sourceUrl?: string;
+  sheetType?: SheetType;
 }
 
-export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: ArtistProps) {
+export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetType }: ArtistProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
 
-    // Handle scrolling to a specific track
+  // Handle scrolling to a specific track
   const handleScrollToTrack = useCallback((trackId: string) => {
     // Sanitize the track ID for use as a CSS selector
     const sanitizedId = trackId.replace(/[^a-zA-Z0-9-_]/g, '-');
@@ -26,6 +28,13 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
     if (element) {
       element.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
+  }, []);
+
+  // Handle track info/details
+  const handleTrackInfo = useCallback((track: Track) => {
+    // This would typically open a track details modal
+    // For now, we'll just log the track info
+    console.log('Track info:', track);
   }, []);
 
     // Debounce search query to improve performance
@@ -55,10 +64,29 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [searchQuery]);
 
-  // Filter albums and tracks based on debounced search query
+  // Filter albums and tracks based on debounced search query and sheet type
   const filteredAlbums = useMemo(() => {
+    let albumsToFilter = artist.albums;
+
+    // Apply sheet type filtering first (only when not searching)
     if (!debouncedSearchQuery.trim()) {
-      return artist.albums;
+      if (sheetType === 'best') {
+        albumsToFilter = artist.albums.map(album => ({
+          ...album,
+          tracks: album.tracks.filter(track => {
+            // Filter for best tracks - tracks marked as special or high quality
+            return track.isSpecial || 
+                   track.quality?.toLowerCase().includes('og') ||
+                   track.quality?.toLowerCase().includes('full') ||
+                   track.quality?.toLowerCase().includes('lossless') ||
+                   track.quality?.toLowerCase().includes('cd quality');
+          })
+        })).filter(album => album.tracks.length > 0);
+      } else if (sheetType === 'recent') {
+        return []; // Use allTracks instead for recent view
+      }
+      
+      return albumsToFilter;
     }
 
     const query = debouncedSearchQuery.toLowerCase();
@@ -116,7 +144,7 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
       
       return null;
     }).filter(album => album !== null);
-  }, [artist.albums, debouncedSearchQuery]);
+  }, [artist.albums, debouncedSearchQuery, sheetType]);
 
   // Flat list of all matching tracks for search display (no era grouping)
   const searchTracks = useMemo(() => {
@@ -182,12 +210,51 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
     );
   }, [artist.albums, debouncedSearchQuery]);
 
+  // Flat list of all tracks for recent view (no era grouping)
+  const allTracks = useMemo(() => {
+    if (sheetType !== 'recent') {
+      return [];
+    }
+    
+    const allTracks: (Track & { albumName: string })[] = [];
+    artist.albums.forEach(album => {
+      album.tracks.forEach(track => {
+        // Skip tracks without proper data
+        if (!track || (!track.title?.main && !track.rawName)) {
+          return;
+        }
+
+        // Filter for recent tracks (tracks with dates in the last 6 months)
+        const hasRecentDate = track.leakDate || track.fileDate;
+        if (hasRecentDate) {
+          const trackDate = new Date(hasRecentDate);
+          const sixMonthsAgo = new Date();
+          sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+          
+          if (trackDate >= sixMonthsAgo) {
+            allTracks.push({
+              ...track,
+              albumName: album.name
+            });
+          }
+        }
+      });
+    });
+
+    // Sort by date (newest first)
+    return allTracks.sort((a, b) => {
+      const dateA = new Date(a.leakDate || a.fileDate || 0);
+      const dateB = new Date(b.leakDate || b.fileDate || 0);
+      return dateB.getTime() - dateA.getTime();
+    });
+  }, [artist.albums, sheetType]);
+
   const totalFilteredTracks = filteredAlbums.reduce((total, album) => total + album.tracks.length, 0);
   return (
-    <div className="max-w-6xl mx-auto p-6">
-      {/* Artist Header */}
-      <div className="text-center mb-8">
-        <h1 className="text-4xl font-bold text-gray-800 dark:text-white mb-2">
+    <div className="max-w-6xl mx-auto p-3 sm:p-6">
+      {/* Artist Header - Reduced spacing */}
+      <div className="text-center mb-4 sm:mb-6">
+        <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-white mb-2">
           {artist.name}
         </h1>
         <p className="text-gray-600 dark:text-gray-400">
@@ -196,10 +263,14 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
               {filteredAlbums.length} era{filteredAlbums.length !== 1 ? 's' : ''} •{' '}
               {totalFilteredTracks} track{totalFilteredTracks !== 1 ? 's' : ''} found
             </>
+          ) : sheetType === 'recent' ? (
+            <>
+              {allTracks.length} recent track{allTracks.length !== 1 ? 's' : ''}
+            </>
           ) : (
             <>
-              {artist.albums.length} era{artist.albums.length !== 1 ? 's' : ''} •{' '}
-              {artist.albums.reduce((total, album) => total + album.tracks.length, 0)} track{artist.albums.reduce((total, album) => total + album.tracks.length, 0) !== 1 ? 's' : ''}
+              {filteredAlbums.length} era{filteredAlbums.length !== 1 ? 's' : ''} •{' '}
+              {totalFilteredTracks} track{totalFilteredTracks !== 1 ? 's' : ''}
             </>
           )}
         </p>
@@ -209,7 +280,7 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
         
         {/* Export Button */}
         {docId && sourceUrl && (
-          <div className="mt-4">
+          <div className="mt-3 sm:mt-4">
             <ExportButton 
               artist={artist}
               docId={docId}
@@ -221,8 +292,8 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
         )}
       </div>
 
-      {/* Search Bar */}
-      <div className="mb-8 max-w-2xl mx-auto">
+      {/* Search Bar - Reduced spacing */}
+      <div className="mb-4 sm:mb-6 max-w-2xl mx-auto">
         <div className="relative">
           <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
             <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -235,7 +306,7 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Search for tracks by title, alternate names, or notes... (Ctrl+K)"
-            className="block w-full pl-10 pr-12 py-3 border border-gray-300 dark:border-gray-600 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 shadow-sm transition-all duration-200"
+            className="block w-full pl-10 pr-12 py-2.5 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 shadow-sm transition-all duration-200"
           />
           {searchQuery && (
             <button
@@ -263,11 +334,11 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
         )}
       </div>
 
-      {/* Search Results or Albums Grid */}
+      {/* Search Results, Recent View, or Albums Grid */}
       {debouncedSearchQuery.trim() ? (
         // Show flat track list when searching
         searchTracks.length > 0 ? (
-          <TrackList tracks={searchTracks} onPlay={onPlayTrack} />
+          <TrackList tracks={searchTracks} onPlay={onPlayTrack} onTrackInfo={handleTrackInfo} />
         ) : (
           <div className="text-center py-12">
             <div className="text-gray-400 text-6xl mb-4">🔍</div>
@@ -283,10 +354,23 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl }: Artist
             </button>
           </div>
         )
+      ) : sheetType === 'recent' ? (
+        // Show flat track list for recent view (no era grouping)
+        allTracks.length > 0 ? (
+          <TrackList tracks={allTracks} onPlay={onPlayTrack} onTrackInfo={handleTrackInfo} />
+        ) : (
+          <div className="text-center py-12">
+            <div className="text-gray-400 text-6xl mb-4">🆕</div>
+            <h2 className="text-xl font-semibold text-gray-600 dark:text-gray-400 mb-2">No Recent Tracks</h2>
+            <p className="text-gray-500 dark:text-gray-500">
+              No tracks found in the recent timeframe.
+            </p>
+          </div>
+        )
       ) : (
-        // Show normal album view when not searching
+        // Show normal album view when not searching and not recent view
         filteredAlbums.length > 0 ? (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {filteredAlbums.map((album, index) => (
               <Album 
                 key={album.id || `album-${index}`} 

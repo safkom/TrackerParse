@@ -34,7 +34,6 @@ interface GoogleSheetsResponse {
 interface ParsedJsonData {
   metadata: {
     artistName?: string;
-    discordLink?: string;
     [key: string]: unknown;
   };
   columnMap: Record<string, number>;
@@ -185,8 +184,11 @@ export class GoogleDocsParser {
 
   // Convert JSON table data to our internal format
   // eslint-disable-next-line @typescript-eslint/no-unused-vars  
-  static parseJsonData(table: GoogleSheetsTable, sheetType: 'unreleased' | 'best' = 'unreleased'): ParsedJsonData {
+  static parseJsonData(table: GoogleSheetsTable, sheetType: 'unreleased' | 'best' | 'recent' = 'unreleased'): ParsedJsonData {
     const rows = this.convertJsonToRows(table);
+    
+    // Store era information from headers (will be populated during header processing)
+    let eraInfoFromHeaders = new Map();
     
     if (rows.length === 0) {
       return { 
@@ -251,6 +253,10 @@ export class GoogleDocsParser {
       // The data might be structured differently - let's check the column labels from the API
       if (table.cols && table.cols.length > 0) {
         console.log('Using column labels from API response');
+        
+        // Extract era information from column labels before cleaning them
+        eraInfoFromHeaders = this.extractEraInfoFromHeaders(table.cols);
+        
         headers = table.cols.map((col: GoogleSheetsColumn) => {
           // Extract the actual column name from the label
           let label = col.label || col.id || '';
@@ -267,6 +273,7 @@ export class GoogleDocsParser {
         
         headerRowIndex = 0; // Start processing from first data row
         console.log('Extracted headers from API:', headers);
+        console.log('Extracted era info from headers:', eraInfoFromHeaders);
       } else {
         console.warn('No clear header row found, using first row as headers');
         headerRowIndex = 0;
@@ -282,7 +289,6 @@ export class GoogleDocsParser {
     const metadata: any = {
       title: '',
       artistName: '',
-      discordLink: '',
       description: ''
     };
     
@@ -292,12 +298,6 @@ export class GoogleDocsParser {
       const row = rows[i];
       for (const cell of row) {
         if (!cell) continue;
-        
-        // Extract Discord link
-        const discordMatch = cell.match(/(?:https?:\/\/)?discord\.(?:gg|com\/invite)\/[a-zA-Z0-9]+/i);
-        if (discordMatch && !metadata.discordLink) {
-          metadata.discordLink = discordMatch[0].startsWith('http') ? discordMatch[0] : `https://${discordMatch[0]}`;
-        }
         
         // Extract artist name from tracker title
         if (cell.toLowerCase().includes('tracker')) {
@@ -326,12 +326,6 @@ export class GoogleDocsParser {
     if (table.cols) {
       for (const col of table.cols) {
         const label = col.label || '';
-        
-        // Extract Discord link from labels
-        const discordMatch = label.match(/(?:https?:\/\/)?discord\.(?:gg|com\/invite)\/[a-zA-Z0-9]+/i);
-        if (discordMatch && !metadata.discordLink) {
-          metadata.discordLink = discordMatch[0].startsWith('http') ? discordMatch[0] : `https://${discordMatch[0]}`;
-        }
         
         // Look for Ye/Kanye references
         if (label.toLowerCase().includes('ye tracker') || label.toLowerCase().includes('kanye')) {
@@ -379,6 +373,24 @@ export class GoogleDocsParser {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const eras = new Map<string, any>();
     let currentEra = '';
+    
+    // Helper function to get era info from headers
+    const getEraHeaderInfo = (eraName: string) => {
+      // Try exact match first
+      if (eraInfoFromHeaders.has(eraName)) {
+        return eraInfoFromHeaders.get(eraName)!;
+      }
+      
+      // Try partial matches for era variants
+      for (const [headerEra, info] of eraInfoFromHeaders.entries()) {
+        if (eraName.toLowerCase().includes(headerEra.toLowerCase()) || 
+            headerEra.toLowerCase().includes(eraName.toLowerCase())) {
+          return info;
+        }
+      }
+      
+      return { description: undefined, timeline: undefined };
+    };
     
     // Find where main data ends (look for footer sections)
     let mainDataEnd = rows.length;
@@ -498,11 +510,14 @@ export class GoogleDocsParser {
           }
         }
         
+        // Get header information for this era
+        const headerInfo = getEraHeaderInfo(currentEra);
+        
         eras.set(currentEra, {
           name: currentEra,
           alternateNames: [],
-          description: subEraDescription,
-          notes: subEraNotes,
+          description: headerInfo.description || subEraDescription,
+          notes: headerInfo.timeline || subEraNotes,
           picture: '',
           tracks: []
         });
@@ -510,9 +525,11 @@ export class GoogleDocsParser {
       }
       
       // Check if this is an era metadata row
-      // Pattern: First column has file counts, second column has era name
+      // Pattern: First column has file counts (possibly multi-line), second column has era name
       const isMetadataRow = firstCol && 
-                           firstCol.match(/\d+\s+(?:OG File|Full|Tagged|Partial|Snippet|Stem Bounce|Unavailable)/i) &&
+                           (firstCol.match(/\d+\s+(?:OG File|Full|Tagged|Partial|Snippet|Stem Bounce|Unavailable)/i) ||
+                            firstCol.includes('OG File') || firstCol.includes('Unavailable') || 
+                            firstCol.match(/^\d+.*\n.*\d+.*\n/)) && // Multi-line format
                            secondCol && 
                            !secondCol.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && // Second col is not a date
                            !secondCol.match(/^\w{3}\s+\d{1,2},\s+\d{4}$/) && // Not "Jul 31, 2017" format
@@ -562,13 +579,16 @@ export class GoogleDocsParser {
           }
         }
         
+        // Get header information for this era
+        const headerInfo = getEraHeaderInfo(currentEra);
+        
         // Update existing era if it exists, otherwise create new one
         if (eras.has(currentEra)) {
           const existingEra = eras.get(currentEra)!;
           eras.set(currentEra, {
             ...existingEra,
-            description: eraNameInfo.description || eraDescription || existingEra.description,
-            notes: eraNotes || existingEra.notes,
+            description: headerInfo.description || eraNameInfo.description || eraDescription || existingEra.description,
+            notes: headerInfo.timeline || eraNotes || existingEra.notes,
             picture: eraImage || existingEra.picture,
             alternateNames: eraNameInfo.alternateNames,
             metadata: metadata
@@ -577,8 +597,8 @@ export class GoogleDocsParser {
           eras.set(currentEra, {
             name: currentEra,
             alternateNames: eraNameInfo.alternateNames,
-            description: eraNameInfo.description || eraDescription,
-            notes: eraNotes,
+            description: headerInfo.description || eraNameInfo.description || eraDescription,
+            notes: headerInfo.timeline || eraNotes,
             picture: eraImage,
             metadata: metadata,
             tracks: []
@@ -594,8 +614,9 @@ export class GoogleDocsParser {
                        !firstCol.match(/^\d+:\d+$/) && // Not a time
                        !firstCol.includes('http') && // Not a URL
                        !firstCol.match(/\d+\s+(?:OG File|Full|Tagged|Partial|Snippet|Stem Bounce|Unavailable)/i) && // Not metadata
-                       !firstCol.includes('(') && // Not a description with parentheses like "Good Ass Job (Winter Spring Summer Fall)"
                        !firstCol.toLowerCase().includes('timeline') && // Not timeline info
+                       !firstCol.toLowerCase().includes('template') && // Not template rows
+                       !firstCol.toLowerCase().includes('how to') && // Not instruction rows
                        !secondCol; // Second column is empty (indicates era row)
       
       // Check if this is an era row - fallback for eras without metadata
@@ -651,9 +672,12 @@ export class GoogleDocsParser {
           }
         }
         
+        // Get header information for this era
+        const headerInfo = getEraHeaderInfo(currentEra);
+        
         // Combine description from era name and additional columns
-        const finalDescription = eraNameInfo.description || eraDescription || '';
-        const finalNotes = eraNotes || notesValue || '';
+        const finalDescription = headerInfo.description || eraNameInfo.description || eraDescription || '';
+        const finalNotes = headerInfo.timeline || eraNotes || notesValue || '';
         
         console.log(`Era "${currentEra}" - Description: "${finalDescription}", Notes: "${finalNotes}"`);
         
@@ -771,6 +795,28 @@ export class GoogleDocsParser {
         
         // Create track object using the second column as the name
         const parsedTitle = GoogleDocsParser.parseTrackTitle(secondCol);
+        
+        // Standardize quality
+        const standardizedQuality = GoogleDocsParser.standardizeQuality(
+          typeValue && qualityValue ? `${typeValue} - ${qualityValue}` : qualityValue || typeValue || ''
+        );
+        
+        // Process and categorize links
+        const rawLinks = linksValue ? linksValue.split(/[,\n]/).map(link => link.trim()).filter(link => link) : [];
+        const processedLinks = rawLinks.map(link => {
+          const linkInfo = GoogleDocsParser.categorizeLink(link);
+          return {
+            url: link,
+            platform: linkInfo.platform,
+            type: linkInfo.type,
+            isValid: linkInfo.isValid
+          };
+        });
+        
+        // Parse dates with improved parsing
+        const parsedFileDate = GoogleDocsParser.parseTrackDate(fileDateValue);
+        const parsedLeakDate = GoogleDocsParser.parseTrackDate(leakDateValue);
+        
         const track = {
           era: trackEra,
           name: secondCol,
@@ -778,16 +824,20 @@ export class GoogleDocsParser {
           rawName: secondCol,
           notes: notesValue,
           trackLength: trackLengthValue,
-          fileDate: fileDateValue,
-          leakDate: leakDateValue,
+          fileDate: parsedFileDate ? parsedFileDate.toISOString().split('T')[0] : fileDateValue,
+          leakDate: parsedLeakDate ? parsedLeakDate.toISOString().split('T')[0] : leakDateValue,
           availableLength: availableLengthValue,
-          quality: typeValue && qualityValue ? `${typeValue} - ${qualityValue}` : qualityValue || typeValue || '',
+          quality: standardizedQuality,
           type: typeValue,
-          links: linksValue ? linksValue.split(/[,\n]/).map(link => link.trim()).filter(link => link) : [],
+          links: processedLinks.length > 0 ? processedLinks : rawLinks.map(url => ({ url, type: 'unknown' })),
           isSpecial: secondCol.includes('🏆') || secondCol.includes('✨') || secondCol.includes('⭐'),
           specialType: secondCol.includes('⭐') ? '⭐' : 
                       secondCol.includes('✨') ? '✨' : 
-                      secondCol.includes('🏆') ? '🏆' : undefined
+                      secondCol.includes('🏆') ? '🏆' : undefined,
+          // Add metadata for better filtering and sorting
+          dateObj: parsedLeakDate || parsedFileDate, // For sorting recent tracks
+          linkCount: rawLinks.length,
+          hasValidLinks: processedLinks.some(link => link.isValid)
         };
         
         console.log(`Adding track: ${secondCol} to era: ${trackEra}`);
@@ -799,10 +849,12 @@ export class GoogleDocsParser {
         } else {
           console.warn(`Era ${trackEra} not found in eras map when adding track ${secondCol}`);
           // Create the era if it doesn't exist
+          const headerInfo = getEraHeaderInfo(trackEra);
           eras.set(trackEra, {
             name: trackEra,
             alternateNames: [],
-            description: '',
+            description: headerInfo.description || '',
+            notes: headerInfo.timeline || '',
             picture: '',
             tracks: [track]
           });
@@ -823,7 +875,7 @@ export class GoogleDocsParser {
       tracks,
       statistics,
       totalRows: rows.length,
-      dataRows: mainDataEnd - headerRowIndex - 1
+        dataRows: mainDataEnd - headerRowIndex - 1
     };
   }
 
@@ -864,31 +916,37 @@ export class GoogleDocsParser {
           }
         }
         
-        // Check if it's a production credit
+        // Enhanced production credit detection
         if (content.match(/\b(?:prod\.?|produced|production)\s+(?:by\s+)?(.+)/i)) {
           const prodMatch = content.match(/\b(?:prod\.?|produced|production)\s+(?:by\s+)?(.+)/i);
           if (prodMatch) {
-            producers.push(prodMatch[1].trim());
+            // Split multiple producers by & or ,
+            const prodList = prodMatch[1].split(/\s*[&,]\s*/).map(p => p.trim()).filter(p => p.length > 0);
+            producers.push(...prodList);
             title = title.replace(parenMatch, '').trim();
             continue;
           }
         }
         
-        // Check if it's a feature
+        // Enhanced feature detection
         if (content.match(/\b(?:ft\.?|feat\.?|featuring)\s+(.+)/i)) {
           const featMatch = content.match(/\b(?:ft\.?|feat\.?|featuring)\s+(.+)/i);
           if (featMatch) {
-            features.push(featMatch[1].trim());
+            // Split multiple features by & or ,
+            const featList = featMatch[1].split(/\s*[&,]\s*/).map(f => f.trim()).filter(f => f.length > 0);
+            features.push(...featList);
             title = title.replace(parenMatch, '').trim();
             continue;
           }
         }
         
-        // Check if it's a collaboration
+        // Enhanced collaboration detection
         if (content.match(/\b(?:with|w\/)\s+(.+)/i)) {
           const withMatch = content.match(/\b(?:with|w\/)\s+(.+)/i);
           if (withMatch) {
-            collaborators.push(withMatch[1].trim());
+            // Split multiple collaborators by & or ,
+            const collabList = withMatch[1].split(/\s*[&,]\s*/).map(c => c.trim()).filter(c => c.length > 0);
+            collaborators.push(...collabList);
             title = title.replace(parenMatch, '').trim();
             continue;
           }
@@ -961,6 +1019,82 @@ export class GoogleDocsParser {
     };
   }
 
+  // Parse track date from various date formats with enhanced normalization
+  static parseTrackDate(dateString: string): Date | null {
+    if (!dateString || dateString.trim() === '') {
+      return null;
+    }
+
+    // Remove extra whitespace, parentheses, and common prefixes
+    const cleanDate = dateString.trim()
+      .replace(/[()]/g, '')
+      .replace(/^(leaked?|released?|recorded?|date[d]?:?)\s*/i, '')
+      .trim();
+    
+    // Handle relative dates like "Yesterday", "Last week", etc.
+    const now = new Date();
+    const relativeMap: Record<string, number> = {
+      'today': 0,
+      'yesterday': -1,
+      'last week': -7,
+      'last month': -30,
+      'last year': -365
+    };
+    
+    const cleanLower = cleanDate.toLowerCase();
+    for (const [relative, days] of Object.entries(relativeMap)) {
+      if (cleanLower.includes(relative)) {
+        const date = new Date(now);
+        date.setDate(date.getDate() + days);
+        return date;
+      }
+    }
+    
+    // Try various date formats commonly found in trackers
+    const dateFormats = [
+      // MM/DD/YYYY or M/D/YYYY
+      { pattern: /(\d{1,2})\/(\d{1,2})\/(\d{4})/, handler: (m: RegExpMatchArray) => new Date(parseInt(m[3]), parseInt(m[1]) - 1, parseInt(m[2])) },
+      // DD/MM/YYYY or D/M/YYYY (European format - try both interpretations)
+      { pattern: /(\d{1,2})\.(\d{1,2})\.(\d{4})/, handler: (m: RegExpMatchArray) => new Date(parseInt(m[3]), parseInt(m[2]) - 1, parseInt(m[1])) },
+      // YYYY-MM-DD (ISO format)
+      { pattern: /(\d{4})-(\d{1,2})-(\d{1,2})/, handler: (m: RegExpMatchArray) => new Date(parseInt(m[1]), parseInt(m[2]) - 1, parseInt(m[3])) },
+      // Month DD, YYYY (e.g., "Apr 22, 2009")
+      { pattern: /([A-Za-z]{3,9})\s+(\d{1,2}),?\s+(\d{4})/, handler: (m: RegExpMatchArray) => new Date(`${m[1]} ${m[2]}, ${m[3]}`) },
+      // DD Month YYYY (e.g., "22 April 2009")
+      { pattern: /(\d{1,2})\s+([A-Za-z]{3,9})\s+(\d{4})/, handler: (m: RegExpMatchArray) => new Date(`${m[2]} ${m[1]}, ${m[3]}`) },
+      // Month YYYY (e.g., "April 2009")
+      { pattern: /([A-Za-z]{3,9})\s+(\d{4})/, handler: (m: RegExpMatchArray) => new Date(`${m[1]} 1, ${m[2]}`) },
+      // Just year YYYY
+      { pattern: /^(\d{4})$/, handler: (m: RegExpMatchArray) => new Date(parseInt(m[1]), 0, 1) },
+      // Quarter format (Q1 2023, etc.)
+      { pattern: /q(\d)\s+(\d{4})/i, handler: (m: RegExpMatchArray) => {
+        const quarter = parseInt(m[1]);
+        const year = parseInt(m[2]);
+        const month = (quarter - 1) * 3; // Q1=0, Q2=3, Q3=6, Q4=9
+        return new Date(year, month, 1);
+      }}
+    ];
+
+    for (const format of dateFormats) {
+      const match = cleanDate.match(format.pattern);
+      if (match) {
+        try {
+          const date = format.handler(match);
+          if (!isNaN(date.getTime()) && 
+              date.getFullYear() >= 1990 && 
+              date.getFullYear() <= new Date().getFullYear() + 5) {
+            return date;
+          }
+        } catch (e) {
+          // Continue to next format
+          continue;
+        }
+      }
+    }
+
+    return null;
+  }
+
   // Parse era name and extract alternate names
   static parseEraName(rawEraName: string): { mainName: string; alternateNames: string[]; description?: string } {
     if (!rawEraName) {
@@ -1011,6 +1145,109 @@ export class GoogleDocsParser {
       description
     };
   }
+
+  // Standardize quality values to consistent format
+  static standardizeQuality(rawQuality: string): string {
+    if (!rawQuality) return '';
+    
+    const quality = rawQuality.toLowerCase().trim();
+    
+    // Quality mapping for consistency
+    const qualityMap: Record<string, string> = {
+      'hq': 'High Quality',
+      'high quality': 'High Quality',
+      'highquality': 'High Quality',
+      'hi-q': 'High Quality',
+      'lq': 'Low Quality',
+      'low quality': 'Low Quality',
+      'lowquality': 'Low Quality',
+      'lo-q': 'Low Quality',
+      'cdq': 'CD Quality',
+      'cd quality': 'CD Quality',
+      'cd-quality': 'CD Quality',
+      'lossless': 'Lossless',
+      'flac': 'Lossless',
+      'wav': 'Lossless',
+      'recording': 'Recording',
+      'recorded': 'Recording',
+      'rec': 'Recording',
+      'not available': 'Not Available',
+      'n/a': 'Not Available',
+      'na': 'Not Available',
+      'unavailable': 'Not Available',
+      'snippet': 'Snippet',
+      'snip': 'Snippet',
+      'partial': 'Partial',
+      'full': 'Full',
+      'complete': 'Full',
+      'og': 'OG File',
+      'original': 'OG File',
+      'tagged': 'Tagged',
+      'stem': 'Stem',
+      'bounce': 'Stem Bounce',
+      'stem bounce': 'Stem Bounce'
+    };
+    
+    // Check for exact matches first
+    if (qualityMap[quality]) {
+      return qualityMap[quality];
+    }
+    
+    // Check for partial matches
+    for (const [key, value] of Object.entries(qualityMap)) {
+      if (quality.includes(key)) {
+        return value;
+      }
+    }
+    
+    // Return original with proper capitalization if no match
+    return rawQuality.split(' ').map(word => 
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  }
+
+  // Categorize and validate links by platform
+  static categorizeLink(url: string): { platform: string; type: string; isValid: boolean } {
+    if (!url || !url.trim()) {
+      return { platform: 'Unknown', type: 'unknown', isValid: false };
+    }
+    
+    const cleanUrl = url.trim().toLowerCase();
+    
+    // Platform detection
+    if (cleanUrl.includes('pillows.su') || cleanUrl.includes('pillowcase.su') || 
+        cleanUrl.includes('pillowcases.su') || cleanUrl.includes('pillowcases.top')) {
+      return { platform: 'Pillowcase', type: 'download', isValid: true };
+    } else if (cleanUrl.includes('soundcloud.com')) {
+      return { platform: 'SoundCloud', type: 'stream', isValid: true };
+    } else if (cleanUrl.includes('youtube.com') || cleanUrl.includes('youtu.be')) {
+      return { platform: 'YouTube', type: 'stream', isValid: true };
+    } else if (cleanUrl.includes('spotify.com')) {
+      return { platform: 'Spotify', type: 'stream', isValid: true };
+    } else if (cleanUrl.includes('apple.com') || cleanUrl.includes('music.apple.com')) {
+      return { platform: 'Apple Music', type: 'stream', isValid: true };
+    } else if (cleanUrl.includes('drive.google.com')) {
+      return { platform: 'Google Drive', type: 'download', isValid: true };
+    } else if (cleanUrl.includes('dropbox.com')) {
+      return { platform: 'Dropbox', type: 'download', isValid: true };
+    } else if (cleanUrl.includes('mega.nz')) {
+      return { platform: 'MEGA', type: 'download', isValid: true };
+    } else if (cleanUrl.includes('music.froste.lol')) {
+      return { platform: 'Froste', type: 'download', isValid: true };
+    } else if (cleanUrl.includes('facebook.com')) {
+      return { platform: 'Facebook', type: 'social', isValid: true };
+    } else if (cleanUrl.includes('twitter.com') || cleanUrl.includes('x.com')) {
+      return { platform: 'Twitter/X', type: 'social', isValid: true };
+    } else if (cleanUrl.includes('instagram.com')) {
+      return { platform: 'Instagram', type: 'social', isValid: true };
+    } else if (cleanUrl.match(/\.(mp3|wav|m4a|aac|ogg|flac)$/i)) {
+      return { platform: 'Direct', type: 'audio', isValid: true };
+    } else if (cleanUrl.startsWith('http')) {
+      return { platform: 'Web', type: 'web', isValid: true };
+    }
+    
+    return { platform: 'Unknown', type: 'unknown', isValid: false };
+  }
   // Parse era metadata string to extract file counts
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static parseEraMetadata(metadataString: string): any {
@@ -1026,28 +1263,34 @@ export class GoogleDocsParser {
 
     if (!metadataString) return metadata;
 
-    // Extract different file type counts using regex
-    const ogMatch = metadataString.match(/(\d+)\s+OG\s+File/i);
+    // Handle multi-line format by normalizing the string first
+    const normalizedString = metadataString.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+    
+    console.log('Parsing era metadata:', normalizedString);
+
+    // Extract different file type counts using regex (more flexible patterns)
+    const ogMatch = normalizedString.match(/(\d+)\s+(?:OG\s+File(?:\(s\))?)/i);
     if (ogMatch) metadata.ogFiles = parseInt(ogMatch[1]);
 
-    const fullMatch = metadataString.match(/(\d+)\s+Full/i);
+    const fullMatch = normalizedString.match(/(\d+)\s+Full(?!\s+File)/i);
     if (fullMatch) metadata.fullFiles = parseInt(fullMatch[1]);
 
-    const taggedMatch = metadataString.match(/(\d+)\s+Tagged/i);
+    const taggedMatch = normalizedString.match(/(\d+)\s+Tagged/i);
     if (taggedMatch) metadata.taggedFiles = parseInt(taggedMatch[1]);
 
-    const partialMatch = metadataString.match(/(\d+)\s+Partial/i);
+    const partialMatch = normalizedString.match(/(\d+)\s+Partial/i);
     if (partialMatch) metadata.partialFiles = parseInt(partialMatch[1]);
 
-    const snippetMatch = metadataString.match(/(\d+)\s+Snippet/i);
+    const snippetMatch = normalizedString.match(/(\d+)\s+Snippet(?:\(s\))?/i);
     if (snippetMatch) metadata.snippetFiles = parseInt(snippetMatch[1]);
 
-    const stemMatch = metadataString.match(/(\d+)\s+Stem\s+Bounce/i);
+    const stemMatch = normalizedString.match(/(\d+)\s+Stem\s+Bounce(?:\(s\))?/i);
     if (stemMatch) metadata.stemBounceFiles = parseInt(stemMatch[1]);
 
-    const unavailableMatch = metadataString.match(/(\d+)\s+Unavailable/i);
+    const unavailableMatch = normalizedString.match(/(\d+)\s+Unavailable/i);
     if (unavailableMatch) metadata.unavailableFiles = parseInt(unavailableMatch[1]);
 
+    console.log('Parsed metadata:', metadata);
     return metadata;
   }
 
@@ -1321,7 +1564,7 @@ export class GoogleDocsParser {
     return docId;
   }
 
-  // Consolidate similar eras (e.g., "Donda 2" and "Donda 2 (2025)" should be combined)
+  // Consolidate similar eras (only for specific cases like DONDA variants)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   static consolidateEras(eras: any[]): any[] {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -1331,69 +1574,22 @@ export class GoogleDocsParser {
       // Normalize the era name for comparison
       const normalizedName = era.name.trim();
       
-      // Remove year suffixes in parentheses for comparison
-      const baseNameMatch = normalizedName.match(/^(.+?)\s*\(\d{4}\)\s*$/);
-      const baseName = baseNameMatch ? baseNameMatch[1].trim() : normalizedName;
+      // Only consolidate specific known variants, not all year-suffixed eras
+      let shouldConsolidate = false;
+      let targetKey = normalizedName;
       
-      // Special handling for Donda 2 variants
-      if (baseName.toLowerCase() === 'donda 2') {
-        const targetKey = 'Donda 2';
-        
+      // Special handling for Donda 2 variants only
+      if (normalizedName.toLowerCase().includes('donda 2')) {
+        shouldConsolidate = true;
+        targetKey = 'Donda 2';
+      }
+      // Add other specific cases here if needed, but be very selective
+      // DO NOT consolidate "Good Ass Job" variants as they are different projects
+      
+      if (shouldConsolidate) {
         if (consolidatedEras.has(targetKey)) {
-          // Merge tracks into existing Donda 2 era
+          // Merge tracks into existing era
           const existingEra = consolidatedEras.get(targetKey)!;
-          existingEra.tracks.push(...era.tracks);
-          
-          // Combine descriptions and notes
-          if (era.description && !existingEra.description.includes(era.description)) {
-            existingEra.description = existingEra.description 
-              ? `${existingEra.description}\n${era.description}` 
-              : era.description;
-          }
-          
-          if (era.notes && !existingEra.notes.includes(era.notes)) {
-            existingEra.notes = existingEra.notes 
-              ? `${existingEra.notes}\n${era.notes}` 
-              : era.notes;
-          }
-          
-          // Combine alternate names for Donda 2
-          if (era.alternateNames && era.alternateNames.length > 0) {
-            existingEra.alternateNames = existingEra.alternateNames || [];
-            for (const altName of era.alternateNames) {
-              if (!existingEra.alternateNames.includes(altName)) {
-                existingEra.alternateNames.push(altName);
-              }
-            }
-          }
-          
-          // Use the first non-empty picture
-          if (!existingEra.picture && era.picture) {
-            existingEra.picture = era.picture;
-          }
-          
-          console.log(`Consolidated "${era.name}" into "${targetKey}"`);
-        } else {
-          // Create new consolidated era with the base name
-          consolidatedEras.set(targetKey, {
-            ...era,
-            name: targetKey
-          });
-        }
-      } else {
-        // For other eras, check if we already have a similar base name
-        let existingKey = null;
-        for (const [key] of consolidatedEras) {
-          const existingBaseName = key.match(/^(.+?)\s*\(\d{4}\)\s*$/)?.[1]?.trim() || key;
-          if (existingBaseName.toLowerCase() === baseName.toLowerCase()) {
-            existingKey = key;
-            break;
-          }
-        }
-        
-        if (existingKey) {
-          // Merge into existing era
-          const existingEra = consolidatedEras.get(existingKey)!;
           existingEra.tracks.push(...era.tracks);
           
           // Combine descriptions and notes
@@ -1424,11 +1620,17 @@ export class GoogleDocsParser {
             existingEra.picture = era.picture;
           }
           
-          console.log(`Consolidated "${era.name}" into "${existingKey}"`);
+          console.log(`Consolidated "${era.name}" into "${targetKey}"`);
         } else {
-          // No similar era found, keep as is
-          consolidatedEras.set(era.name, era);
+          // Create new consolidated era with the target name
+          consolidatedEras.set(targetKey, {
+            ...era,
+            name: targetKey
+          });
         }
+      } else {
+        // Keep all other eras as-is, no consolidation
+        consolidatedEras.set(era.name, era);
       }
     }
     
@@ -1436,7 +1638,7 @@ export class GoogleDocsParser {
   }
 
   // Main parsing method with sheet selection using JSON API
-  static async parseGoogleDoc(googleDocsUrl: string, sheetType: 'unreleased' | 'best' = 'unreleased'): Promise<Artist> {
+  static async parseGoogleDoc(googleDocsUrl: string, sheetType: 'unreleased' | 'best' | 'recent' = 'unreleased'): Promise<Artist> {
     try {
       // Use the JSON API instead of CSV
       const jsonUrl = GoogleDocsParser.getJsonUrl(googleDocsUrl);
@@ -1478,6 +1680,21 @@ export class GoogleDocsParser {
       jsonData.eras = GoogleDocsParser.consolidateEras(jsonData.eras);
       console.log(`After consolidation: ${jsonData.eras.length} eras`);
       
+      // Calculate actual track counts for validation
+      const actualTrackCounts = {
+        totalTracks: jsonData.tracks.length,
+        eraTrackSum: jsonData.eras.reduce((sum: number, era) => sum + (era.tracks?.length || 0), 0)
+      };
+      console.log('Track count validation:', actualTrackCounts);
+      
+      // Validate statistics against actual counts
+      const availability = jsonData.statistics.availability as { totalFull: number; unavailable: number };
+      const statsSum = availability.totalFull + availability.unavailable;
+      console.log(`Statistics sum (totalFull + unavailable): ${statsSum}, Actual tracks: ${actualTrackCounts.totalTracks}`);
+      if (Math.abs(statsSum - actualTrackCounts.totalTracks) > 100) {
+        console.warn(`⚠️  Large discrepancy in track counts: Stats=${statsSum}, Actual=${actualTrackCounts.totalTracks}`);
+      }
+      
       // Parse album art from the Art tab
       console.log('Fetching album art...');
       const artMap = await GoogleDocsParser.parseAlbumArt(googleDocsUrl);
@@ -1502,13 +1719,30 @@ export class GoogleDocsParser {
             title: parsedTitle,
             rawName: String(trackData.name || ''),
             notes: String(trackData.notes || ''),
-            discordLink: jsonData.metadata.discordLink || '',
             trackLength: String(trackData.trackLength || ''),
             fileDate: String(trackData.fileDate || ''),
             leakDate: String(trackData.leakDate || ''),
             availableLength: String(trackData.availableLength || ''),
             quality: String(trackData.quality || ''),
-            links: Array.isArray(trackData.links) ? trackData.links.map((link: unknown) => ({ url: String(link), type: 'audio' as const })) : [],
+            links: Array.isArray(trackData.links) ? trackData.links.map((link: unknown) => {
+              // Handle both old format (string) and new format (object with platform/type/isValid)
+              if (typeof link === 'string') {
+                return { url: link, type: 'audio' as const };
+              } else if (typeof link === 'object' && link !== null && 'url' in link) {
+                const linkObj = link as { url: string; platform?: string; type?: string; isValid?: boolean };
+                const validTypes = ['unknown', 'download', 'stream', 'social', 'audio', 'web', 'video'];
+                const linkType = linkObj.type && validTypes.includes(linkObj.type) ? 
+                  linkObj.type as 'unknown' | 'download' | 'stream' | 'social' | 'audio' | 'web' | 'video' : 
+                  'audio' as const;
+                return {
+                  url: linkObj.url,
+                  type: linkType,
+                  platform: linkObj.platform,
+                  isValid: linkObj.isValid
+                };
+              }
+              return { url: String(link), type: 'audio' as const };
+            }) : [],
             isSpecial: Boolean(trackData.isSpecial),
             specialType: (['🏆', '✨', '⭐'].includes(String(trackData.specialType))) ? 
               String(trackData.specialType) as '🏆' | '✨' | '⭐' : 
@@ -1537,6 +1771,28 @@ export class GoogleDocsParser {
             switch (sheetType) {
               case 'best':
                 return track.isSpecial;
+              case 'recent':
+                // Consider tracks recent if they have a leak date or file date within the last 6 months
+                const sixMonthsAgo = new Date();
+                sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+                
+                // Check leak date
+                if (track.leakDate) {
+                  const leakDate = this.parseTrackDate(track.leakDate);
+                  if (leakDate && leakDate >= sixMonthsAgo) {
+                    return true;
+                  }
+                }
+                
+                // Check file date
+                if (track.fileDate) {
+                  const fileDate = this.parseTrackDate(track.fileDate);
+                  if (fileDate && fileDate >= sixMonthsAgo) {
+                    return true;
+                  }
+                }
+                
+                return false;
               default:
                 return true;
             }
@@ -1662,6 +1918,138 @@ export class GoogleDocsParser {
       }
       throw new Error(`Failed to parse Google Sheet: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
+  }
+
+  // Extract era information from Google Sheets column headers
+  static extractEraInfoFromHeaders(cols: GoogleSheetsColumn[]): Map<string, { description?: string; timeline?: string }> {
+    const eraInfo = new Map<string, { description?: string; timeline?: string }>();
+    
+    for (const col of cols) {
+      const fullLabel = col.label || '';
+      if (!fullLabel.trim()) continue;
+      
+      // Look for era names in the label
+      const eraNames = this.extractEraNames(fullLabel);
+      
+      for (const eraName of eraNames) {
+        if (!eraInfo.has(eraName)) {
+          eraInfo.set(eraName, {});
+        }
+        
+        const info = eraInfo.get(eraName)!;
+        
+        // Extract description (long text that looks like era description)
+        const description = this.extractEraDescription(fullLabel, eraName);
+        if (description && !info.description) {
+          info.description = description;
+        }
+        
+        // Extract timeline notes (parenthetical dates)
+        const timeline = this.extractEraTimeline(fullLabel);
+        if (timeline && !info.timeline) {
+          info.timeline = timeline;
+        }
+      }
+    }
+    
+    return eraInfo;
+  }
+  
+  // Extract era names from column label text
+  static extractEraNames(text: string): string[] {
+    const eraNames: string[] = [];
+    
+    // Common era patterns - more comprehensive list
+    const eraPatterns = [
+      /Before The College Dropout/i,
+      /The College Dropout/i,
+      /Good Ass Job(?:\s*\(2018\))?/i,
+      /Late Registration/i,
+      /Graduation/i,
+      /808s & Heartbreak/i,
+      /My Beautiful Dark Twisted Fantasy/i,
+      /Watch The Throne/i,
+      /Cruel Summer/i,
+      /Yeezus(?!\s)/i,
+      /So Help Me God/i,
+      /SWISH/i,
+      /The Life Of Pablo/i,
+      /TurboGrafx16/i,
+      /LOVE EVERYONE/i,
+      /ye(?!\s+tracker)/i,
+      /KIDS SEE GHOSTS/i,
+      /Yandhi/i,
+      /JESUS IS KING/i,
+      /God's Country/i,
+      /Donda/i,
+      /VULTURES/i,
+      /BULLY/i,
+      /CUCK/i,
+      /IN A PERFECT WORLD/i,
+      /WAR/i,
+      /YEBU/i,
+      /Bad Bitch Playbook/i
+    ];
+    
+    for (const pattern of eraPatterns) {
+      const match = text.match(pattern);
+      if (match) {
+        eraNames.push(match[0]);
+      }
+    }
+    
+    return eraNames;
+  }
+  
+  // Extract era description from column label
+  static extractEraDescription(text: string, eraName: string): string | undefined {
+    // Look for long descriptive text that doesn't contain dates in parentheses
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+    
+    for (const line of lines) {
+      // Skip lines that are just era names or column headers
+      if (line.length < 50) continue;
+      if (line.toLowerCase().includes('tracker')) continue;
+      if (line.toLowerCase().includes('discord')) continue;
+      if (line.match(/^\(.*\)$/)) continue; // Skip pure parenthetical content
+      
+      // Look for descriptive text about the era
+      if (line.includes(eraName) || 
+          line.toLowerCase().includes('kanye') || 
+          line.toLowerCase().includes('album') ||
+          line.toLowerCase().includes('project') ||
+          line.toLowerCase().includes('released')) {
+        return line.trim();
+      }
+    }
+    
+    return undefined;
+  }
+  
+  // Extract timeline information from column label
+  static extractEraTimeline(text: string): string | undefined {
+    // Look for parenthetical date entries
+    const timelineEntries: string[] = [];
+    const datePattern = /\(\d{1,2}\/\d{1,2}\/\d{4}\)[^(]*/g;
+    const dateMatches = text.match(datePattern);
+    
+    if (dateMatches) {
+      timelineEntries.push(...dateMatches.map(match => match.trim()));
+    }
+    
+    // Also look for month-day-year patterns
+    const monthPattern = /\([A-Z][a-z]{2}\s+\d{1,2},\s+\d{4}\)[^(]*/g;
+    const monthMatches = text.match(monthPattern);
+    
+    if (monthMatches) {
+      timelineEntries.push(...monthMatches.map(match => match.trim()));
+    }
+    
+    if (timelineEntries.length > 0) {
+      return timelineEntries.join('\n');
+    }
+    
+    return undefined;
   }
 
 }

@@ -29,7 +29,6 @@ export interface CSVTrackRow {
   trackName: string;
   rawName: string;
   notes: string;
-  discordLink: string;
   trackLength: string;
   fileDate: string;
   leakDate: string;
@@ -96,7 +95,6 @@ export class DataExporter {
           trackName: track.title.main,
           rawName: track.rawName,
           notes: track.notes || '',
-          discordLink: track.discordLink || '',
           trackLength: track.trackLength || '',
           fileDate: track.fileDate || '',
           leakDate: track.leakDate || '',

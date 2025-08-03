@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const docId = url.searchParams.get('docId');
-  const sheetType = url.searchParams.get('sheetType') as 'unreleased' | 'best' || 'unreleased';
+  const sheetType = url.searchParams.get('sheetType') as 'unreleased' | 'best' | 'recent' || 'unreleased';
 
   if (!docId) {
     return NextResponse.json(

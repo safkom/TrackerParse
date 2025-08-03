@@ -2,7 +2,7 @@
 
 import React from 'react';
 
-export type SheetType = 'unreleased' | 'best';
+export type SheetType = 'unreleased' | 'best' | 'recent';
 
 interface SheetNavigationProps {
   currentSheet: SheetType;
@@ -25,6 +25,13 @@ export default function SheetNavigation({ currentSheet, onSheetChange, isLoading
       icon: '🏆',
       description: 'High quality and special tracks',
       color: 'bg-amber-500 hover:bg-amber-600 dark:bg-amber-600 dark:hover:bg-amber-700'
+    },
+    {
+      id: 'recent' as const,
+      label: 'Recent Tracks',
+      icon: '🆕',
+      description: 'Recently added or updated tracks',
+      color: 'bg-green-500 hover:bg-green-600 dark:bg-green-600 dark:hover:bg-green-700'
     }
   ];
 

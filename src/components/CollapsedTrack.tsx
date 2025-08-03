@@ -1,8 +1,47 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Track as TrackType } from '@/types';
 import MetadataModal from './MetadataModal';
+import TrackDetailPage from './TrackDetailPage';
+
+// Import the clean title extraction function
+function extractCleanTitle(title: string): string {
+  if (!title) return 'Unknown';
+  
+  let cleanTitle = title.trim();
+  
+  // Remove artist collaborations (Artist - Title format)
+  const collabMatch = cleanTitle.match(/^[^-]+ - (.+)$/);
+  if (collabMatch) {
+    cleanTitle = collabMatch[1].trim();
+  }
+  
+  // Remove version indicators and technical info
+  cleanTitle = cleanTitle
+    // Remove parenthetical version info
+    .replace(/\s*\((?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*|ref\.?[^)]*|prod\.?[^)]*|[\d]+[kmgt]?b|[\d]+hz|[\d]+kbps|lossless|flac|mp3|wav|m4a|aac|ogg|[\d:]+).*?\)\s*/gi, '')
+    // Remove square bracket version info
+    .replace(/\s*\[(?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*).*?\]\s*/gi, '')
+    // Remove trailing version indicators
+    .replace(/\s*[-_]\s*(?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*)\s*$/gi, '')
+    // Remove special emojis for grouping
+    .replace(/[⭐✨🏆]/g, '')
+    // Clean up extra spaces and punctuation
+    .replace(/\s+/g, ' ')
+    .replace(/[\s\-_,\/]+$/, '')
+    .trim();
+
+  // Handle unknown tracks
+  if (cleanTitle.toLowerCase().includes('unknown') || 
+      cleanTitle.includes('???') || 
+      cleanTitle.toLowerCase().includes('untitled') ||
+      !cleanTitle || cleanTitle.length < 2) {
+    return 'Unknown';
+  }
+
+  return cleanTitle || 'Unknown';
+}
 
 interface CollapsedTrackProps {
   tracks: TrackType[];
@@ -11,26 +50,16 @@ interface CollapsedTrackProps {
 }
 
 export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: CollapsedTrackProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [showVersionsView, setShowVersionsView] = useState(false);
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
-  const [selectedTrack, setSelectedTrack] = useState<TrackType | null>(null);
+  const [selectedMetadataTrack, setSelectedMetadataTrack] = useState<TrackType | null>(null);
+  const [showDetailPage, setShowDetailPage] = useState<TrackType | null>(null);
+  const [metadataStates, setMetadataStates] = useState<Record<string, boolean | null>>({}); // track id -> metadata exists
 
-  if (tracks.length === 0) return null;
+  if (!tracks || tracks.length === 0) return null;
 
-  // Sort tracks by priority: ⭐ > ✨ > 🏆 > regular tracks
-  const sortedTracks = [...tracks].sort((a, b) => {
-    const getPriority = (track: TrackType) => {
-      if (track.specialType === '⭐') return 4;
-      if (track.specialType === '✨') return 3;
-      if (track.specialType === '🏆') return 2;
-      return 1;
-    };
-    return getPriority(b) - getPriority(a);
-  });
-
-  const mainTrack = sortedTracks[0];
-  const hasSpecialVersions = tracks.some(track => track.isSpecial);
-  const specialEmojis = Array.from(new Set(tracks.filter(track => track.isSpecial).map(track => track.specialType))).filter(Boolean);
+  const mainTrack = tracks[0];
+  const hasMultipleVersions = tracks.length > 1;
 
   // Enhanced: Find playable link and type
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
@@ -40,7 +69,6 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
       // Pillowcase API (pillows.su, pillowcase.su, pillowcases.su, pillowcases.top) including /f/<id> alternate links
       if (url.match(/pillow(case)?s?\.(su|top)/i)) {
         // Try to extract id from /f/<id> or anywhere in the URL
-        // Match /f/<32hex> or any 32 hex chars
         let match = url.match(/\/f\/([a-f0-9]{32})/i);
         if (!match) {
           match = url.match(/([a-f0-9]{32})/i);
@@ -60,326 +88,529 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
     return null;
   };
 
-  const playable = getPlayableSource(mainTrack);
-  const isPillowcase = playable?.type === 'pillowcase';
-  
-  // Check if track is not available based on quality or available length
-  const isNotAvailable = mainTrack.quality?.toLowerCase().includes('not available') || 
-                         mainTrack.availableLength?.toLowerCase().includes('not available') ||
-                         mainTrack.quality?.toLowerCase().includes('unavailable') ||
-                         mainTrack.availableLength?.toLowerCase().includes('unavailable');
-  
-  // A track has a playable link if getPlayableSource returns a valid result and track is available
-  const hasPlayableLink = playable !== null && !isNotAvailable;
+  // Function to check if metadata exists for a track
+  const checkMetadataExists = async (id: string): Promise<boolean> => {
+    try {
+      const metadataUrl = `https://api.pillows.su/api/metadata/${id}.txt`;
+      const response = await fetch(metadataUrl, {
+        headers: {
+          'User-Agent': 'TrackerHub/1.0',
+          'Accept': 'text/plain, */*',
+        },
+      });
+      
+      if (!response.ok) {
+        return false;
+      }
+      
+      const text = await response.text();
+      // Check if the response contains actual metadata (not just an error message)
+      return text.trim().length > 0 && !text.toLowerCase().includes('not found') && !text.toLowerCase().includes('error');
+    } catch (error) {
+      console.error('Error checking metadata:', error);
+      return false;
+    }
+  };
 
-  const handleMetadataClick = (track: TrackType) => {
-    const trackPlayable = getPlayableSource(track);
-    if (trackPlayable?.type === 'pillowcase' && trackPlayable.id) {
-      setSelectedTrack(track);
+  // Check metadata for all tracks with pillowcase sources
+  // eslint-disable-next-line react-hooks/rules-of-hooks
+  useEffect(() => {
+    const checkAllMetadata = async () => {
+      const newStates: Record<string, boolean | null> = {};
+      const promises: Promise<void>[] = [];
+      
+      for (const track of tracks) {
+        const playable = getPlayableSource(track);
+        if (playable?.type === 'pillowcase' && playable.id) {
+          const trackKey = track.id || track.rawName;
+          if (metadataStates[trackKey] === undefined) {
+            newStates[trackKey] = null; // Set to loading state
+            
+            // Create a promise for each metadata check
+            const promise = checkMetadataExists(playable.id).then(exists => {
+              setMetadataStates(prev => ({ 
+                ...prev, 
+                [trackKey]: exists 
+              }));
+            });
+            promises.push(promise);
+          }
+        }
+      }
+      
+      // Update loading states immediately
+      if (Object.keys(newStates).length > 0) {
+        setMetadataStates(prev => ({ ...prev, ...newStates }));
+      }
+      
+      // Wait for all promises to complete
+      await Promise.all(promises);
+    };
+
+    if (tracks.length > 0) {
+      checkAllMetadata();
+    }
+  }, [tracks.length]); // Only re-run when track count changes
+
+  const openMetadataModal = (track: TrackType) => {
+    const playable = getPlayableSource(track);
+    const trackKey = track.id || track.rawName;
+    if (playable?.type === 'pillowcase' && playable.id && metadataStates[trackKey] === true) {
+      setSelectedMetadataTrack(track);
       setIsMetadataModalOpen(true);
     }
   };
 
+  const openDetailPage = (track: TrackType) => {
+    setShowDetailPage(track);
+    onScrollToTrack?.(track.id || track.rawName);
+  };
+
+  const openVersionsView = () => {
+    setShowVersionsView(!showVersionsView);
+  };
+
+  // Check if main track is playable
+  const mainPlayable = getPlayableSource(mainTrack);
+  const isMainNotAvailable = mainTrack.quality?.toLowerCase().includes('not available') || 
+                            mainTrack.availableLength?.toLowerCase().includes('not available') ||
+                            mainTrack.quality?.toLowerCase().includes('unavailable') ||
+                            mainTrack.availableLength?.toLowerCase().includes('unavailable');
+  const hasMainPlayableLink = mainPlayable !== null && !isMainNotAvailable;
+
+  // Show individual track detail page
+  if (showDetailPage) {
+    return (
+      <TrackDetailPage
+        track={showDetailPage}
+        onClose={() => setShowDetailPage(null)}
+        onPlay={onPlay}
+      />
+    );
+  }
+
   return (
-    <>
+    <div className="collapsed-track bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm">
+      {/* Main Track Card - Cleaner Design */}
       <div 
-        className="track-item bg-white dark:bg-gray-800 rounded-lg p-3 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200"
-        onClick={() => onScrollToTrack?.(mainTrack.id || mainTrack.rawName)}
+        className={`p-3 transition-colors ${hasMultipleVersions ? 'cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-750' : ''}`}
+        onClick={hasMultipleVersions ? openVersionsView : (() => {
+          // For single versions, open detail page directly
+          openDetailPage(mainTrack);
+        })}
       >
-        <div className="flex items-start justify-between mb-2">
+        <div className="flex items-center justify-between">
+          {/* Left side - Track info */}
           <div className="flex-1 min-w-0">
-            {/* Main Title */}
-            <div className="flex items-center gap-2 mb-1">
-              <h3 className="text-base font-semibold text-gray-900 dark:text-white truncate">
-                {mainTrack.title?.main || mainTrack.rawName}
+            {/* Title and version count */}
+            <div className="flex items-center gap-2 mb-2">
+              <h3 className="text-base font-semibold text-gray-900 dark:text-white">
+                {extractCleanTitle(mainTrack.title?.main || mainTrack.rawName)}
               </h3>
               
-              {/* Special Version Indicators */}
-              {hasSpecialVersions && (
-                <div className="flex items-center gap-1">
-                  {specialEmojis.map((emoji, index) => (
-                    <span key={index} className="text-sm" title={`Has ${emoji} version`}>
-                      {emoji}
-                    </span>
-                  ))}
-                </div>
-              )}
-
-              {/* Version Count and Expand Button */}
-              {tracks.length > 1 && (
-                <div className="flex items-center gap-1">
-                  <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300 rounded-full">
-                    {tracks.length} versions
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setIsExpanded(!isExpanded);
-                    }}
-                    className="p-1 text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 transition-colors"
-                    title={isExpanded ? 'Collapse versions' : 'Show all versions'}
-                  >
-                    <svg 
-                      className={`w-4 h-4 transition-transform duration-200 ${isExpanded ? 'rotate-180' : ''}`} 
-                      fill="currentColor" 
-                      viewBox="0 0 20 20"
-                    >
-                      <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
-                    </svg>
-                  </button>
-                </div>
-              )}
-
-              {/* Metadata button for Pillowcase tracks */}
-              {isPillowcase && playable?.id && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleMetadataClick(mainTrack);
-                  }}
-                  className="px-2 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs rounded transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md flex items-center space-x-1"
-                  title="View track metadata"
-                >
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <span>Info</span>
-                </button>
-              )}
-            </div>
-            
-            {/* Alternate titles */}
-            {mainTrack.title?.alternateNames && mainTrack.title.alternateNames.length > 0 && (
-              <div className="mb-1">
-                <p className="text-xs text-gray-500 dark:text-gray-400 italic">
-                  Alternate name: {mainTrack.title.alternateNames.join(', ')}
-                </p>
-              </div>
-            )}
-            
-            {/* Track Length */}
-            {mainTrack.trackLength && (
-              <div className="mb-1">
-                <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded">
-                  Length: {mainTrack.trackLength}
+              {/* Special indicator */}
+              {mainTrack.isSpecial && mainTrack.specialType && (
+                <span className="text-lg" title={
+                  mainTrack.specialType === '⭐' ? 'Best Of' :
+                  mainTrack.specialType === '✨' ? 'Special' :
+                  'Wanted'
+                }>
+                  {mainTrack.specialType}
                 </span>
-              </div>
-            )}
-            
-            {/* Features, Collaborators, Producers, References */}
-            {(mainTrack.title?.features?.length > 0 || mainTrack.title?.collaborators?.length > 0 || mainTrack.title?.producers?.length > 0 || mainTrack.title?.references?.length > 0) && (
-              <div className="mb-1">
-                <div className="flex flex-wrap gap-1">
-                  {mainTrack.title?.features?.map((feature, index) => (
-                    <span key={`feat-${index}`} className="text-xs px-1.5 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-                      feat. {feature}
-                    </span>
-                  ))}
-                  {mainTrack.title?.collaborators?.map((collab, index) => (
-                    <span key={`with-${index}`} className="text-xs px-1.5 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
-                      with {collab}
-                    </span>
-                  ))}
-                  {mainTrack.title?.producers?.map((producer, index) => (
-                    <span key={`prod-${index}`} className="text-xs px-1.5 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
-                      prod. {producer}
-                    </span>
-                  ))}
-                  {mainTrack.title?.references?.map((reference, index) => (
-                    <span key={`ref-${index}`} className="text-xs px-1.5 py-0.5 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
-                      ref. {reference}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-            
-            {/* Quality */}
-            <div className="mb-1">
-              <div className="flex flex-wrap gap-1">
-                {mainTrack.quality && (
-                  <span className="text-xs px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded">
-                    Quality: {mainTrack.quality}
-                  </span>
-                )}
-              </div>
+              )}
+              
+              {/* Expand/Collapse indicator - only for multiple versions */}
+              {hasMultipleVersions && (
+                <svg 
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showVersionsView ? 'rotate-180' : ''}`} 
+                  fill="none" 
+                  stroke="currentColor" 
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              )}
             </div>
-            
+
+            {/* Metadata row - Best Quality and Key Info */}
+            <div className="flex flex-wrap gap-2">
+              {(() => {
+                // Find the best quality track
+                const bestQualityTrack = tracks.reduce((best, current) => {
+                  const bestQuality = best.quality?.toLowerCase() || '';
+                  const currentQuality = current.quality?.toLowerCase() || '';
+                  
+                  // Skip unavailable tracks for best quality
+                  if (currentQuality.includes('not available') || currentQuality.includes('unavailable')) {
+                    return best;
+                  }
+                  if (bestQuality.includes('not available') || bestQuality.includes('unavailable')) {
+                    return current;
+                  }
+                  
+                  // Priority: lossless > cd quality > high quality > anything else
+                  if (currentQuality.includes('lossless') || currentQuality.includes('flac')) return current;
+                  if (bestQuality.includes('lossless') || bestQuality.includes('flac')) return best;
+                  if (currentQuality.includes('cd') || currentQuality.includes('320')) return current;
+                  if (bestQuality.includes('cd') || bestQuality.includes('320')) return best;
+                  if (currentQuality.includes('high') || currentQuality.includes('256')) return current;
+                  return best;
+                }, tracks[0]);
+
+                // Check if full file has leaked - more accurate detection
+                const hasFullLeak = tracks.some(track => {
+                  if (!track.availableLength) return false;
+                  const availableLength = track.availableLength.toLowerCase();
+                  
+                  // Explicit full indicators
+                  if (availableLength.includes('full')) return true;
+                  
+                  // Check if track length matches available length (both exist and are same)
+                  if (track.trackLength && track.availableLength && 
+                      track.trackLength.toLowerCase() === track.availableLength.toLowerCase()) {
+                    return true;
+                  }
+                  
+                  // If it explicitly says snippet, partial, or has time indicators like "1:30" but track is longer, it's not full
+                  if (availableLength.includes('snippet') || 
+                      availableLength.includes('partial') ||
+                      availableLength.includes('not available') ||
+                      availableLength.includes('unavailable')) {
+                    return false;
+                  }
+                  
+                  // If available length looks like a time (contains :) and track length exists and is different, check if they match
+                  if (availableLength.match(/\d+:\d+/) && track.trackLength) {
+                    return track.trackLength.toLowerCase() === availableLength;
+                  }
+                  
+                  return false;
+                });
+
+                // Check if best quality is unavailable
+                const bestQualityUnavailable = bestQualityTrack.quality?.toLowerCase().includes('not available') || 
+                                              bestQualityTrack.quality?.toLowerCase().includes('unavailable');
+
+                return (
+                  <>
+                    {/* Best Quality Badge - only show if not unavailable */}
+                    {bestQualityTrack.quality && !bestQualityUnavailable && (
+                      <span className="text-xs px-2 py-1 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
+                        Best: {bestQualityTrack.quality.length > 15 ? bestQualityTrack.quality.substring(0, 15) + '...' : bestQualityTrack.quality}
+                      </span>
+                    )}
+                    
+                    {/* Version count badge - on same line */}
+                    {hasMultipleVersions && (
+                      <span className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded-full">
+                        {tracks.length} versions
+                      </span>
+                    )}
+                    
+                    {/* Length */}
+                    {bestQualityTrack.trackLength && (
+                      <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                        {bestQualityTrack.trackLength}
+                      </span>
+                    )}
+                    
+                    {/* Leak Status */}
+                    <span className={`text-xs px-2 py-1 rounded-full ${
+                      hasFullLeak 
+                        ? 'bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300' 
+                        : 'bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300'
+                    }`}>
+                      {hasFullLeak ? 'Full Leaked' : 'Partial/Snippet'}
+                    </span>
+                  </>
+                );
+              })()}
+            </div>
+
+            {/* Description/Notes */}
             {mainTrack.notes && (
-              <p className="text-xs text-gray-600 dark:text-gray-300 mb-2 line-clamp-2">
+              <p className="text-sm text-gray-600 dark:text-gray-300 mt-2 line-clamp-2">
                 {mainTrack.notes}
               </p>
             )}
           </div>
-          
-          {/* Right side - Play Button and Dates */}
-          <div className="ml-3 flex flex-col items-end gap-1">
-            {/* Play Button */}
-            {hasPlayableLink && onPlay && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onPlay(mainTrack);
-                }}
-                className="flex items-center justify-center w-10 h-10 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105 hover:shadow-lg flex-shrink-0"
-                title="Play track"
-              >
-                <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-              </button>
-            )}
-            
-            {/* Dates */}
-            <div className="flex flex-col items-end gap-1 text-right">
-              {mainTrack.availableLength && (
-                <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded">
-                  Available: {mainTrack.availableLength}
-                </span>
-              )}
-              {mainTrack.fileDate && (
-                <span className="text-xs px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded">
-                  File: {mainTrack.fileDate}
-                </span>
-              )}
-              {mainTrack.leakDate && (
-                <span className="text-xs px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded">
-                  Leak: {mainTrack.leakDate}
-                </span>
-              )}
-            </div>
-          </div>
-        </div>
 
-        {/* Expanded Version List */}
-        {isExpanded && tracks.length > 1 && (
-          <div className="mt-3 pt-3 border-t border-gray-200 dark:border-gray-600">
-            <div className="space-y-2">
-              {sortedTracks.map((track, index) => (
-                <div key={track.id || index} className="flex items-center justify-between p-2 bg-gray-50 dark:bg-gray-700 rounded">
-                  <div className="flex items-center gap-2 flex-1 min-w-0">
-                    {track.isSpecial && track.specialType && (
-                      <span className="text-sm flex-shrink-0">{track.specialType}</span>
-                    )}
-                    <span className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                      {track.title?.main || track.rawName}
-                    </span>
-                    {track.quality && (
-                      <span className="text-xs px-1.5 py-0.5 bg-gray-200 dark:bg-gray-600 text-gray-600 dark:text-gray-300 rounded flex-shrink-0">
-                        {track.quality}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <div className="flex items-center gap-1">
-                    {/* Metadata button for each Pillowcase track */}
-                    {(() => {
-                      const trackPlayable = getPlayableSource(track);
-                      return trackPlayable?.type === 'pillowcase' && trackPlayable.id && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleMetadataClick(track);
-                          }}
-                          className="p-1 text-purple-600 hover:text-purple-700 dark:text-purple-400 dark:hover:text-purple-300 transition-colors"
-                          title="View metadata"
-                        >
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      );
-                    })()}
-                    
-                    {/* Play button for each track */}
-                    {(() => {
-                      const trackPlayable = getPlayableSource(track);
-                      return trackPlayable !== null && !isNotAvailable && onPlay && (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onPlay(track);
-                          }}
-                          className="p-1 text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
-                          title="Play track"
-                        >
-                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      );
-                    })()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
+          {/* Right side - Action buttons for single versions */}
+          {!hasMultipleVersions && (
+            <div className="flex items-center gap-2 ml-4">
+              {/* Play Button for single version */}
+              {hasMainPlayableLink && onPlay && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onPlay(mainTrack);
+                  }}
+                  className="flex items-center justify-center w-10 h-10 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105"
+                  title="Play track"
+                >
+                  <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                  </svg>
+                </button>
+              )}
 
-        {/* Main Track Links */}
-        {!isExpanded && mainTrack.links && mainTrack.links.length > 0 && (
-          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-            <span className="font-medium text-gray-700 dark:text-gray-300 block mb-1 text-xs">Links:</span>
-            <div className="flex flex-wrap gap-1">
-              {mainTrack.links.map((link, index) => {
-                const url = typeof link === 'string' ? link : link.url;
-                const label = typeof link === 'string' ? `Link ${index + 1}` : (link.label || `Link ${index + 1}`);
+              {/* Metadata Button for single version */}
+              {mainPlayable?.type === 'pillowcase' && mainPlayable.id && (() => {
+                const trackKey = mainTrack.id || mainTrack.rawName;
+                const metadataExists = metadataStates[trackKey];
                 
+                if (metadataExists === true) {
+                  return (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        openMetadataModal(mainTrack);
+                      }}
+                      className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs rounded transition-all duration-200 hover:scale-105 flex items-center space-x-1"
+                      title="View track metadata"
+                    >
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                      </svg>
+                      <span>Info</span>
+                    </button>
+                  );
+                } else if (metadataExists === null) {
+                  return (
+                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded flex items-center space-x-1">
+                      <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                      <span>...</span>
+                    </span>
+                  );
+                } else if (metadataExists === false) {
+                  return (
+                    <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded flex items-center space-x-1" title="No metadata available">
+                      <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                      </svg>
+                      <span>No info</span>
+                    </span>
+                  );
+                }
+                return null;
+              })()}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Inline Versions View */}
+      {showVersionsView && tracks.length > 1 && (
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+          <div className="p-3">
+            <div className="space-y-2">
+              {tracks.map((track, index) => {
+                const playable = getPlayableSource(track);
+                const isNotAvailable = track.quality?.toLowerCase().includes('not available') || 
+                                      track.availableLength?.toLowerCase().includes('not available') ||
+                                      track.quality?.toLowerCase().includes('unavailable') ||
+                                      track.availableLength?.toLowerCase().includes('unavailable');
+                const hasPlayableLink = playable !== null && !isNotAvailable;
+
                 return (
-                  <button
-                    key={index}
-                    onClick={(e) => {
-                      e.preventDefault();
-                      e.stopPropagation();
-                      window.open(url, '_blank', 'noopener,noreferrer');
+                  <div 
+                    key={track.id || `${track.rawName}-${index}`}
+                    className="bg-white dark:bg-gray-800 rounded-lg p-3 hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors cursor-pointer border border-gray-200 dark:border-gray-600"
+                    onClick={() => {
+                      // Check if track is rumored and has a link
+                      const isRumored = track.quality?.toLowerCase().includes('rumored') || 
+                                       track.notes?.toLowerCase().includes('rumored') ||
+                                       track.rawName?.toLowerCase().includes('rumored');
+                      
+                      if (isRumored && hasPlayableLink) {
+                        // For rumored tracks with links, just open the link
+                        const playable = getPlayableSource(track);
+                        if (playable) {
+                          window.open(playable.url, '_blank');
+                        }
+                      } else {
+                        // For all other tracks, open detail page
+                        openDetailPage(track);
+                      }
                     }}
-                    className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-blue-100 text-blue-800 hover:bg-blue-200 dark:bg-blue-900 dark:text-blue-200 dark:hover:bg-blue-800 transition-colors cursor-pointer"
                   >
-                    <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                      <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l-1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                    </svg>
-                    {label}
-                  </button>
+                    {/* Track Title and Special Indicators */}
+                    <div className="flex items-start justify-between mb-2">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h4 className="text-sm font-medium text-gray-900 dark:text-white">
+                            {track.title?.main || track.rawName}
+                          </h4>
+                          {track.isSpecial && track.specialType && (
+                            <span className="text-sm" title={
+                              track.specialType === '⭐' ? 'Best Of' :
+                              track.specialType === '✨' ? 'Special' :
+                              'Wanted'
+                            }>
+                              {track.specialType}
+                            </span>
+                          )}
+                        </div>
+                        
+                        {/* Alternate names */}
+                        {track.title?.alternateNames && track.title.alternateNames.length > 0 && (
+                          <p className="text-xs text-gray-500 dark:text-gray-400 italic mb-1">
+                            Also: {track.title.alternateNames.join(', ')}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center gap-1">
+                        {/* Play Button */}
+                        {hasPlayableLink && onPlay && (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onPlay(track);
+                            }}
+                            className="flex items-center justify-center w-8 h-8 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105"
+                            title="Play track"
+                          >
+                            <svg className="w-3 h-3 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        )}
+
+                        {/* Metadata Button */}
+                        {playable?.type === 'pillowcase' && playable.id && (() => {
+                          const trackKey = track.id || track.rawName;
+                          const metadataExists = metadataStates[trackKey];
+                          
+                          if (metadataExists === true) {
+                            return (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  openMetadataModal(track);
+                                }}
+                                className="px-2 py-1 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs rounded transition-all duration-200 hover:scale-105 flex items-center space-x-1"
+                                title="View track metadata"
+                              >
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                                </svg>
+                                <span>Info</span>
+                              </button>
+                            );
+                          } else if (metadataExists === null) {
+                            return (
+                              <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded flex items-center space-x-1">
+                                <svg className="w-3 h-3 animate-spin" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>...</span>
+                              </span>
+                            );
+                          } else if (metadataExists === false) {
+                            return (
+                              <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 rounded flex items-center space-x-1" title="No metadata available">
+                                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                                <span>No info</span>
+                              </span>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    </div>
+
+                    {/* Metadata Badges */}
+                    <div className="flex flex-wrap gap-1 mb-2">
+                      {track.quality && (
+                        <span className="text-xs px-2 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
+                          {track.quality.length > 20 ? track.quality.substring(0, 20) + '...' : track.quality}
+                        </span>
+                      )}
+                      {track.trackLength && (
+                        <span className="text-xs px-2 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                          {track.trackLength}
+                        </span>
+                      )}
+                      {track.availableLength && (
+                        <span className="text-xs px-2 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">
+                          {track.availableLength}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Dates */}
+                    {(track.fileDate || track.leakDate) && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {track.fileDate && (
+                          <span className="text-xs px-2 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded-full">
+                            File: {track.fileDate}
+                          </span>
+                        )}
+                        {track.leakDate && (
+                          <span className="text-xs px-2 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full">
+                            Leak: {track.leakDate}
+                          </span>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Credits */}
+                    {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length) && (
+                      <div className="flex flex-wrap gap-1 mb-2">
+                        {track.title?.features?.slice(0, 2).map((feature, i) => (
+                          <span key={`feat-${i}`} className="text-xs px-2 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                            feat. {feature.length > 10 ? feature.substring(0, 10) + '...' : feature}
+                          </span>
+                        ))}
+                        {track.title?.collaborators?.slice(0, 2).map((collab, i) => (
+                          <span key={`with-${i}`} className="text-xs px-2 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                            with {collab.length > 10 ? collab.substring(0, 10) + '...' : collab}
+                          </span>
+                        ))}
+                        {track.title?.producers?.slice(0, 1).map((producer, i) => (
+                          <span key={`prod-${i}`} className="text-xs px-2 py-0.5 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
+                            prod. {producer.length > 8 ? producer.substring(0, 8) + '...' : producer}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Notes */}
+                    {track.notes && (
+                      <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-2">
+                        {track.notes}
+                      </p>
+                    )}
+                  </div>
                 );
               })}
             </div>
           </div>
-        )}
-
-        {mainTrack.discordLink && (
-          <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-600">
-            <button
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                window.open(mainTrack.discordLink, '_blank', 'noopener,noreferrer');
-              }}
-              className="inline-flex items-center px-2 py-1 rounded text-xs font-medium bg-indigo-100 text-indigo-800 hover:bg-indigo-200 dark:bg-indigo-900 dark:text-indigo-200 dark:hover:bg-indigo-800 transition-colors cursor-pointer"
-            >
-              <svg className="w-3 h-3 mr-1" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M2 5a2 2 0 012-2h7a2 2 0 012 2v4a2 2 0 01-2 2H9l-3 3v-3H4a2 2 0 01-2-2V5z" />
-              </svg>
-              Discord
-            </button>
-          </div>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* Metadata Modal */}
-      {selectedTrack && (
-        <MetadataModal
-          isOpen={isMetadataModalOpen}
-          onClose={() => {
-            setIsMetadataModalOpen(false);
-            setSelectedTrack(null);
-          }}
-          metadataUrl={(() => {
-            const trackPlayable = getPlayableSource(selectedTrack);
-            return trackPlayable?.id ? `https://api.pillows.su/api/metadata/${trackPlayable.id}.txt` : '';
-          })()}
-          trackName={selectedTrack?.title?.main || selectedTrack?.rawName || 'Unknown Track'}
-        />
-      )}
-    </>
+      {selectedMetadataTrack && (() => {
+        const trackKey = selectedMetadataTrack.id || selectedMetadataTrack.rawName;
+        const metadataExists = metadataStates[trackKey];
+        return metadataExists === true ? (
+          <MetadataModal
+            isOpen={isMetadataModalOpen}
+            onClose={() => {
+              setIsMetadataModalOpen(false);
+              setSelectedMetadataTrack(null);
+            }}
+            metadataUrl={`https://api.pillows.su/api/metadata/${getPlayableSource(selectedMetadataTrack)?.id}.txt`}
+            trackName={selectedMetadataTrack?.title?.main || selectedMetadataTrack?.rawName || 'Unknown Track'}
+          />
+        ) : null;
+      })()}
+    </div>
   );
 }

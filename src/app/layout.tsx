@@ -62,24 +62,26 @@ export default function RootLayout({
       >
         <ThemeProvider>
           <Navigation />
-          <main className="pt-14 pb-16">
+          <main className="pt-16 pb-24 min-h-[calc(100vh-4rem)] px-2 sm:px-4">
             {children}
-          </main>
-          <footer className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-lg py-2">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-              <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400">
-                <span>Built with ❤️ for the music tracking community • </span>
-                <a 
-                  href="https://github.com/safkom/TrackerHub" 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ml-1"
-                >
-                  GitHub
-                </a>
+            
+            {/* Page Footer - at bottom of content, not fixed */}
+            <footer className="mt-16 py-8 border-t border-gray-200 dark:border-gray-700">
+              <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400">
+                  <span>Built with ❤️ for the music tracking community • </span>
+                  <a 
+                    href="https://github.com/safkom/TrackerHub" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ml-1"
+                  >
+                    GitHub
+                  </a>
+                </div>
               </div>
-            </div>
-          </footer>
+            </footer>
+          </main>
         </ThemeProvider>
       </body>
     </html>

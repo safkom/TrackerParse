@@ -14,7 +14,6 @@ export interface Track {
   title: TrackTitle;
   rawName: string; // original name from spreadsheet
   notes: string;
-  discordLink?: string;
   trackLength: string;
   fileDate: string;
   leakDate: string;
@@ -28,7 +27,9 @@ export interface Track {
 export interface TrackLink {
   url: string;
   label?: string;
-  type?: 'audio' | 'video' | 'download' | 'stream';
+  type?: 'audio' | 'video' | 'download' | 'stream' | 'social' | 'web' | 'unknown';
+  platform?: string;
+  isValid?: boolean;
 }
 
 export interface EraMetadata {

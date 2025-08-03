@@ -23,7 +23,7 @@ export default function SpreadsheetPage() {
   // Get sheet type from URL params
   useEffect(() => {
     const sheetParam = searchParams.get('sheet') as SheetType;
-    if (sheetParam && ['unreleased', 'best'].includes(sheetParam)) {
+    if (sheetParam && ['unreleased', 'best', 'recent'].includes(sheetParam)) {
       setCurrentSheet(sheetParam);
     }
   }, [searchParams]);
@@ -146,6 +146,7 @@ export default function SpreadsheetPage() {
         onPlayTrack={handlePlayTrack}
         docId={spreadsheetId}
         sourceUrl={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
+        sheetType={currentSheet}
       />
       <MusicPlayer
         track={currentTrack}

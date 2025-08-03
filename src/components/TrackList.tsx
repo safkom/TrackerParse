@@ -7,9 +7,10 @@ import { useMemo } from 'react';
 interface TrackListProps {
   tracks: (Track & { albumName: string })[];
   onPlay?: (track: Track) => void;
+  onTrackInfo?: (track: Track) => void;
 }
 
-export default function TrackList({ tracks, onPlay }: TrackListProps) {
+export default function TrackList({ tracks, onPlay, onTrackInfo }: TrackListProps) {
   // Generate color scheme for search results
   const colorPalette = useMemo(() => {
     return ColorExtractor.getEraColorScheme('search-results');
@@ -19,6 +20,33 @@ export default function TrackList({ tracks, onPlay }: TrackListProps) {
   const colorClasses = useMemo(() => {
     return ColorExtractor.colorPaletteToTailwind(colorPalette);
   }, [colorPalette]);
+
+  // Enhanced: Find playable link and type (same logic as other components)
+  const getPlayableSource = (track: Track): { type: string, url: string, id?: string } | null => {
+    if (!track.links || track.links.length === 0) return null;
+    for (const link of track.links) {
+      const url = typeof link === 'string' ? link : link.url;
+      // Pillowcase API (pillows.su, pillowcase.su, pillowcases.su, pillowcases.top) including /f/<id> alternate links
+      if (url.match(/pillow(case)?s?\.(su|top)/i)) {
+        // Try to extract id from /f/<id> or anywhere in the URL
+        let match = url.match(/\/f\/([a-f0-9]{32})/i);
+        if (!match) {
+          match = url.match(/([a-f0-9]{32})/i);
+        }
+        if (match) {
+          const id = match[1];
+          return { type: 'pillowcase', url, id };
+        }
+      }
+      
+      // Music.froste.lol support - add /download to the end
+      if (url.match(/music\.froste\.lol/i)) {
+        const downloadUrl = url.endsWith('/') ? `${url}download` : `${url}/download`;
+        return { type: 'froste', url: downloadUrl };
+      }
+    }
+    return null;
+  };
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 transition-shadow duration-200 hover:shadow-lg">
@@ -60,11 +88,20 @@ export default function TrackList({ tracks, onPlay }: TrackListProps) {
       <div className="px-4 pb-4">
         <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
           <div className="space-y-3">
-            {tracks.map((track, index) => (
-              <div 
-                key={track.id || index}
-                className="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-              >
+            {tracks.map((track, index) => {
+              // Check if track is playable
+              const playable = getPlayableSource(track);
+              const isNotAvailable = track.quality?.toLowerCase().includes('not available') || 
+                                    track.availableLength?.toLowerCase().includes('not available') ||
+                                    track.quality?.toLowerCase().includes('unavailable') ||
+                                    track.availableLength?.toLowerCase().includes('unavailable');
+              const hasPlayableLink = playable !== null && !isNotAvailable;
+
+              return (
+                <div 
+                  key={track.id || index}
+                  className="p-3 border border-gray-200 dark:border-gray-600 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                >
                 <div className="flex items-start justify-between">
                   <div className="flex-1 min-w-0">
                     {/* Track Title */}
@@ -135,30 +172,56 @@ export default function TrackList({ tracks, onPlay }: TrackListProps) {
                     </div>
                   </div>
 
-                  {/* Play button */}
-                  {onPlay && track.links?.length > 0 && (
-                    <button
-                      onClick={() => onPlay(track)}
-                      className="ml-4 p-2 rounded-full transition-colors"
-                      style={{ 
-                        backgroundColor: colorPalette.primary + '20',
-                        border: `1px solid ${colorPalette.primary}30`
-                      }}
-                      aria-label="Play track"
-                    >
-                      <svg 
-                        className="w-4 h-4" 
-                        fill="currentColor" 
-                        viewBox="0 0 20 20"
-                        style={{ color: colorPalette.primary }}
+                  {/* Action buttons */}
+                  <div className="ml-4 flex space-x-2">
+                    {/* Info button */}
+                    {onTrackInfo && (
+                      <button
+                        onClick={() => onTrackInfo(track)}
+                        className="p-2 rounded-full transition-colors"
+                        style={{ 
+                          backgroundColor: colorPalette.secondary + '20',
+                          border: `1px solid ${colorPalette.secondary}30`
+                        }}
+                        aria-label="Track info"
                       >
-                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                      </svg>
-                    </button>
-                  )}
+                        <svg 
+                          className="w-4 h-4" 
+                          fill="currentColor" 
+                          viewBox="0 0 20 20"
+                          style={{ color: colorPalette.secondary }}
+                        >
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    )}
+
+                    {/* Play button */}
+                    {onPlay && hasPlayableLink && (
+                      <button
+                        onClick={() => onPlay(track)}
+                        className="p-2 rounded-full transition-colors"
+                        style={{ 
+                          backgroundColor: colorPalette.primary + '20',
+                          border: `1px solid ${colorPalette.primary}30`
+                        }}
+                        aria-label="Play track"
+                      >
+                        <svg 
+                          className="w-4 h-4" 
+                          fill="currentColor" 
+                          viewBox="0 0 20 20"
+                          style={{ color: colorPalette.primary }}
+                        >
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                        </svg>
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       </div>

@@ -193,27 +193,27 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
   if (!isVisible || !track) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-lg z-40">
-      <div className="max-w-7xl mx-auto px-4 py-3">
-        <div className="flex flex-col space-y-3">
+    <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-lg z-40 pb-safe">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-4">
+        <div className="flex flex-col space-y-2 sm:space-y-3">
           {/* Track Info and Controls Row */}
-          <div className="grid grid-cols-3 items-center">
+          <div className="grid grid-cols-3 items-center gap-2">
             {/* Track Info - Left */}
-            <div className="flex items-center space-x-3">
-              <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
-                <svg className="w-6 h-6 text-white" fill="currentColor" viewBox="0 0 20 20">
+            <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
+              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" clipRule="evenodd" />
                 </svg>
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                <p className="text-xs sm:text-base font-medium text-gray-900 dark:text-white truncate">
                   {track.title?.main || track.rawName}
                 </p>
                 <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
                   {track.era}
                 </p>
               </div>
-              {/* Metadata Button */}
+              {/* Metadata Button - Mobile */}
               {isPillowcase && playable?.id && (
                 <button
                   onClick={(e) => {
@@ -221,11 +221,11 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
                     e.stopPropagation();
                     setIsMetadataModalOpen(true);
                   }}
-                  className="p-2 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700"
+                  className="p-1.5 sm:p-2.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 flex-shrink-0"
                   title="View metadata"
                   aria-label="View track metadata"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
@@ -233,21 +233,21 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
             </div>
 
             {/* Player Controls - Center */}
-            <div className="flex items-center justify-center space-x-4">
+            <div className="flex items-center justify-center space-x-2 sm:space-x-4">
               {(audioUrl && !isSoundCloudLink && !isYouTubeLink) || (youtubeAudioUrl) ? (
                 <button
                   onClick={togglePlayPause}
                   disabled={loading}
-                  className="w-12 h-12 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-full flex items-center justify-center transition-colors"
+                  className="w-10 h-10 sm:w-14 sm:h-14 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-400 text-white rounded-full flex items-center justify-center transition-colors active:scale-95"
                 >
                   {loading ? (
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                    <div className="animate-spin rounded-full h-4 w-4 sm:h-6 sm:w-6 border-b-2 border-white"></div>
                   ) : isPlaying ? (
-                    <svg className="w-6 h-6" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 sm:w-7 sm:h-7" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zM7 8a1 1 0 012 0v4a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
                     </svg>
                   ) : (
-                    <svg className="w-6 h-6 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
+                    <svg className="w-5 h-5 sm:w-7 sm:h-7 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
                       <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
                     </svg>
                   )}
@@ -325,9 +325,9 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
               )}
               <button
                 onClick={onClose}
-                className="w-8 h-8 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors flex-shrink-0"
+                className="w-10 h-10 sm:w-11 sm:h-11 ml-2 text-gray-400 hover:text-gray-600 dark:text-gray-500 dark:hover:text-gray-300 transition-colors flex-shrink-0 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 flex items-center justify-center"
               >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                <svg className="w-5 h-5 sm:w-6 sm:h-6" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
                 </svg>
               </button>

@@ -6,7 +6,7 @@ import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
 import { ColorExtractor } from '@/utils/colorExtractor';
 import CollapsedTrack from './CollapsedTrack';
-import StatsDisplay from './StatsDisplay';
+import StatsDisplay, { ExpandedStatsDisplay } from './StatsDisplay';
 
 interface AlbumProps {
   album: AlbumType;
@@ -18,6 +18,7 @@ interface AlbumProps {
 export default function Album({ album, onPlay, onScrollToTrack, isSearchActive = false }: AlbumProps) {
   const [isExpanded, setIsExpanded] = useState(isSearchActive);
   const [showStats, setShowStats] = useState(false);
+  const [selectedQualities, setSelectedQualities] = useState<string[]>([]);
   
   // Auto-expand when search is active
   useEffect(() => {
@@ -25,15 +26,55 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
       setIsExpanded(true);
     }
   }, [isSearchActive]);
+
+  // Function to check if a track matches selected quality filters
+  const matchesQualityFilter = (track: TrackType): boolean => {
+    if (selectedQualities.length === 0) return true; // Show all if no filter
+    
+    const quality = track.quality?.toLowerCase() || '';
+    const availableLength = track.availableLength?.toLowerCase() || '';
+    const rawName = track.rawName?.toLowerCase() || '';
+    
+    return selectedQualities.some(qualityKey => {
+      switch (qualityKey) {
+        case 'og':
+          return quality.includes('og') || quality.includes('original') || rawName.includes('og file');
+        case 'full':
+          return quality.includes('full') || availableLength.includes('full') || quality.includes('lossless') || quality.includes('cd quality');
+        case 'tagged':
+          return quality.includes('tagged') || quality.includes('tag') || rawName.includes('tagged');
+        case 'partial':
+          return quality.includes('partial') || availableLength.includes('partial') || track.trackLength?.toLowerCase().includes('partial');
+        case 'snippet':
+          return quality.includes('snippet') || availableLength.includes('snippet') || track.trackLength?.toLowerCase().includes('snippet');
+        case 'stem':
+          return quality.includes('stem') || quality.includes('bounce') || rawName.includes('stem') || rawName.includes('bounce');
+        case 'unavailable':
+          return quality.includes('unavailable') || quality.includes('not available') || 
+                 availableLength.includes('unavailable') || availableLength.includes('not available');
+        default:
+          return false;
+      }
+    });
+  };
   
-  // Group tracks by their base name
+  // Group tracks by their base name, with quality filtering
   const groupedTracks = useMemo(() => {
-    const groups = groupTracksByName(album.tracks);
+    // First filter tracks by selected qualities
+    const filteredTracks = selectedQualities.length === 0 
+      ? album.tracks 
+      : album.tracks.filter(matchesQualityFilter);
+    
+    const groups = groupTracksByName(filteredTracks);
     return Object.entries(groups).map(([mainName, tracks]) => ({
       mainName,
       tracks: sortTracksInGroup(tracks)
     }));
-  }, [album.tracks]);
+  }, [album.tracks, selectedQualities, matchesQualityFilter]);
+
+  const handleQualityFilter = (qualities: string[]) => {
+    setSelectedQualities(qualities);
+  };
 
   // Extract color palette for this album
   const colorPalette = useMemo(() => {
@@ -48,10 +89,24 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
   }, [colorPalette]);
 
   const handleHeaderClick = (e: React.MouseEvent) => {
-    // Only toggle if clicking on the header itself, not on interactive elements
-    if (e.currentTarget === e.target || e.currentTarget.contains(e.target as Node)) {
-      setIsExpanded(!isExpanded);
+    // Don't toggle if clicking on interactive elements (buttons, stats)
+    const target = e.target as HTMLElement;
+    const currentTarget = e.currentTarget as HTMLElement;
+    
+    // Check if the clicked element or any of its parents (up to currentTarget) is a button
+    let element = target;
+    while (element && element !== currentTarget) {
+      if (element.tagName === 'BUTTON' || 
+          element.getAttribute('role') === 'button' ||
+          element.classList.contains('stats-display') ||
+          element.closest('button') ||
+          element.closest('[role="button"]')) {
+        return; // Don't toggle if clicking on interactive elements
+      }
+      element = element.parentElement as HTMLElement;
     }
+    
+    setIsExpanded(!isExpanded);
   };
 
   const handleToggleClick = (e: React.MouseEvent) => {
@@ -63,14 +118,14 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
     <div className="album-card bg-white dark:bg-gray-800 rounded-lg overflow-hidden shadow-md border border-gray-200 dark:border-gray-700 transition-shadow duration-200 hover:shadow-lg mt-4">
       {/* Compact Album Header */}
       <div 
-        className="relative p-3 cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
+        className="relative p-2 sm:p-3 cursor-pointer transition-all duration-200 bg-gray-50 dark:bg-gray-700 border-b border-gray-200 dark:border-gray-600"
         onClick={handleHeaderClick}
       >
         <div className="flex items-center justify-between">
           {/* Era Icon + Album Art + Name */}
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
-            {/* Album Art */}
-            <div className="w-10 h-10 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
+          <div className="flex items-center space-x-2 sm:space-x-3 flex-1 min-w-0">
+            {/* Album Art - smaller on mobile */}
+            <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg overflow-hidden bg-gray-200 dark:bg-gray-700 flex-shrink-0">
               {album.picture && album.picture.trim() !== '' ? (
                 <Image
                   src={album.picture}
@@ -82,7 +137,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
                 />
               ) : (
                 <div className="w-full h-full bg-gradient-to-br from-gray-300 to-gray-400 dark:from-gray-600 dark:to-gray-700 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
+                  <svg className="w-3 h-3 sm:w-4 sm:h-4 text-gray-500 dark:text-gray-400" fill="currentColor" viewBox="0 0 20 20">
                     <path fillRule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clipRule="evenodd" />
                   </svg>
                 </div>
@@ -92,7 +147,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
             {/* Era Info */}
             <div className="flex-1 min-w-0">
               {/* Era Name */}
-              <h2 className="text-lg font-semibold truncate text-gray-900 dark:text-white">
+              <h2 className="text-base sm:text-lg font-semibold truncate text-gray-900 dark:text-white">
                 {album.name}
                 {album.alternateNames && album.alternateNames.length > 0 && (
                   <span className="text-sm opacity-60 font-normal">
@@ -124,6 +179,8 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
                 metadata={album.metadata}
                 isExpanded={showStats}
                 onToggle={() => setShowStats(!showStats)}
+                selectedQualities={selectedQualities}
+                onQualityFilter={handleQualityFilter}
               />
             )}
 
@@ -170,6 +227,19 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
             </div>
           </div>
         )}
+
+        {/* Stats Display - now at the top when expanded */}
+        {isExpanded && album.metadata && showStats && (
+          <div className="mt-3 px-4">
+            <ExpandedStatsDisplay
+              eraName={album.name}
+              metadata={album.metadata}
+              onClose={() => setShowStats(false)}
+              selectedQualities={selectedQualities}
+              onQualityFilter={handleQualityFilter}
+            />
+          </div>
+        )}
       </div>
 
       {/* Tracks List */}
@@ -195,18 +265,6 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
               </div>
             )}
           </div>
-        </div>
-      )}
-
-      {/* Stats Display - now integrated inline */}
-      {isExpanded && album.metadata && showStats && (
-        <div className="px-4 pb-4">
-          <StatsDisplay
-            eraName={album.name}
-            metadata={album.metadata}
-            isExpanded={true}
-            onToggle={() => setShowStats(false)}
-          />
         </div>
       )}
     </div>

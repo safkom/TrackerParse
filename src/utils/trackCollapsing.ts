@@ -1,5 +1,13 @@
 import { Track } from '@/types';
 
+// Regex patterns for cleaning track titles
+const PAREN_VERSION_REGEX = /\s*\([^)]*(?:version|edit|remix|mix|demo|live|acoustic|instrumental|clean|explicit|radio|studio|alt|alternative|leak|ref|reference|og|original|remaster)\b[^)]*\)/gi;
+const BRACKET_VERSION_REGEX = /\s*\[[^\]]*(?:version|edit|remix|mix|demo|live|acoustic|instrumental|clean|explicit|radio|studio|alt|alternative|leak|ref|reference|og|original|remaster)\b[^\]]*\]/gi;
+const TRAILING_VERSION_REGEX = /\s*(?:version|edit|remix|mix|demo|live|acoustic|instrumental|clean|explicit|radio|studio|alt|alternative|leak|ref|reference|og|original|remaster)\s*$/gi;
+
+// Similarity threshold for grouping tracks
+const SIMILARITY_GROUPING_THRESHOLD = 0.85;
+
 // Enhanced grouping with better pattern matching
 export function groupTracksByName(tracks: Track[]): { [mainName: string]: Track[] } {
   const groups: { [mainName: string]: Track[] } = {};

@@ -5,6 +5,7 @@ import { Artist, Album, Track, TrackTitle, TrackLink, EraMetadata, TrackerConfig
 export class ImprovedParser {
   private static lastRequestTime = 0;
   private static minRequestInterval = 500; // Default value; can be configured
+  private static readonly USER_AGENT = 'Mozilla/5.0 (compatible; TrackerParse/1.0)';
   
   /**
    * Set the minimum request interval (in ms) for throttling requests.
@@ -323,8 +324,8 @@ export class ImprovedParser {
       // Rate limiting: ensure minimum interval between requests
       const now = Date.now();
       const timeSinceLastRequest = now - this.lastRequestTime;
-      if (timeSinceLastRequest < this.MIN_REQUEST_INTERVAL) {
-        const waitTime = this.MIN_REQUEST_INTERVAL - timeSinceLastRequest;
+      if (timeSinceLastRequest < this.minRequestInterval) {
+        const waitTime = this.minRequestInterval - timeSinceLastRequest;
         console.log(`Rate limiting: waiting ${waitTime}ms before request`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }

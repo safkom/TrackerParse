@@ -1,5 +1,33 @@
 import { Track, TrackTitle } from '@/types';
 
+// Version patterns for cleaning track names
+const versionPatterns = [
+  'v\\d+',
+  'version\\s*\\d*',
+  'edit',
+  'remix',
+  'mix',
+  'demo',
+  'live',
+  'acoustic',
+  'instrumental',
+  'clean',
+  'explicit',
+  'radio',
+  'studio',
+  'alt',
+  'alternative',
+  'leak',
+  'ref',
+  'reference',
+  'og',
+  'original',
+  'remaster'
+];
+
+// Similarity threshold for track name matching
+const TRACK_NAME_SIMILARITY_THRESHOLD = 0.85;
+
 export interface TrackGroup {
   id: string;
   baseName: string;

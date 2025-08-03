@@ -1,5 +1,7 @@
 import { CacheMetadata } from '@/types';
 
+const USER_AGENT = 'Mozilla/5.0 (compatible; TrackerParse/1.0)';
+
 export class SheetChecker {
   // Convert Google Docs URL to CSV export URL
   static getCSVUrl(googleDocsUrl: string): string {

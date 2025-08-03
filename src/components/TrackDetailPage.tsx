@@ -1,8 +1,6 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import { Track as TrackType } from '@/types';
 import MetadataModal from './MetadataModal';
 import MusicPlayer from './MusicPlayer';
@@ -17,7 +15,6 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<TrackType | null>(null);
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
-  const router = useRouter();
 
   // Enhanced: Find playable link and type
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
@@ -334,10 +331,8 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
                   
                   // Transform froste URLs for display and playback
                   let displayUrl = originalUrl;
-                  let playUrl = originalUrl;
                   if (originalUrl.match(/music\.froste\.lol/i)) {
                     displayUrl = originalUrl.endsWith('/') ? `${originalUrl}download` : `${originalUrl}/download`;
-                    playUrl = displayUrl;
                   }
                   
                   // Check if this link is playable

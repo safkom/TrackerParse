@@ -1,10 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import Image from 'next/image';
 import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
-import { ColorExtractor } from '@/utils/colorExtractor';
 import CollapsedTrack from './CollapsedTrack';
 import StatsDisplay, { ExpandedStatsDisplay } from './StatsDisplay';
 
@@ -28,7 +27,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
   }, [isSearchActive]);
 
   // Function to check if a track matches selected quality filters
-  const matchesQualityFilter = (track: TrackType): boolean => {
+  const matchesQualityFilter = useCallback((track: TrackType): boolean => {
     if (selectedQualities.length === 0) return true; // Show all if no filter
     
     const quality = track.quality?.toLowerCase() || '';
@@ -56,7 +55,7 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
           return false;
       }
     });
-  };
+  }, [selectedQualities]);
   
   // Group tracks by their base name, with quality filtering
   const groupedTracks = useMemo(() => {
@@ -75,18 +74,6 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
   const handleQualityFilter = (qualities: string[]) => {
     setSelectedQualities(qualities);
   };
-
-  // Extract color palette for this album
-  const colorPalette = useMemo(() => {
-    // Use album picture if available, otherwise use album name for color scheme matching
-    const imageOrName = album.picture || album.name;
-    return ColorExtractor.getEraColorScheme(imageOrName);
-  }, [album.picture, album.name]);
-
-  // Generate Tailwind classes from color palette
-  const colorClasses = useMemo(() => {
-    return ColorExtractor.colorPaletteToTailwind(colorPalette);
-  }, [colorPalette]);
 
   const handleHeaderClick = (e: React.MouseEvent) => {
     // Don't toggle if clicking on interactive elements (buttons, stats)

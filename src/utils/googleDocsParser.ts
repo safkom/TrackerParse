@@ -289,6 +289,7 @@ export class GoogleDocsParser {
       title: string;
       artistName: string;
       description: string;
+      [key: string]: unknown;
     }
     const metadata: GoogleDocsMetadata = {
       title: '',

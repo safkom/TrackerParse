@@ -105,8 +105,8 @@ function shouldGroupTracks(track1: Track, track2: Track): boolean {
   for (const name1 of allNames1) {
     for (const name2 of allNames2) {
       if (name1 === name2) return true;
-      // Check for high similarity - lowered from 0.9 to 0.95 to be more strict
-      if (calculateSimilarity(name1, name2) >= 0.95) return true;
+      // Check for high similarity - see TRACK_NAME_SIMILARITY_THRESHOLD for rationale
+      if (calculateSimilarity(name1, name2) >= TRACK_NAME_SIMILARITY_THRESHOLD) return true;
     }
   }
   

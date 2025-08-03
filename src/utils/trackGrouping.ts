@@ -26,7 +26,10 @@ export function extractBaseName(title: TrackTitle): string {
   baseName = baseName.replace(/\s*\[V\d+\]\s*/gi, ' ');
   
   // Remove common version patterns - enhanced for better matching
-  baseName = baseName.replace(/\s*[-_]\s*(V\d+|Version\s*\d*|Alt\s*\d*|Alternative\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|Instrumental\s*\d*|Accapella\s*\d*|Acoustic\s*\d*|Live\s*\d*|Radio\s*\d*|Clean\s*\d*|Explicit\s*\d*|Final\s*\d*|Original\s*\d*|Extended\s*\d*|Short\s*\d*|Full\s*\d*|Leak\s*\d*|CDQ\s*\d*|HQ\s*\d*)\s*$/i, '');
+  baseName = baseName.replace(
+    new RegExp(`\\s*[-_]\\s*(${versionPatterns.join('|')})\\s*$`, 'i'),
+    ''
+  );
   
   // Remove parenthetical content that looks like technical metadata, references, or quality info
   // Keep alternate names that might be useful for grouping

@@ -285,8 +285,12 @@ export class GoogleDocsParser {
     console.log('Header row index:', headerRowIndex);
     
     // Extract metadata from the API column labels or early rows
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const metadata: any = {
+    interface GoogleDocsMetadata {
+      title: string;
+      artistName: string;
+      description: string;
+    }
+    const metadata: GoogleDocsMetadata = {
       title: '',
       artistName: '',
       description: ''

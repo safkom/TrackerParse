@@ -4,8 +4,16 @@ import { Artist, Album, Track, TrackTitle, TrackLink, EraMetadata, TrackerConfig
 
 export class ImprovedParser {
   private static lastRequestTime = 0;
-  private static readonly MIN_REQUEST_INTERVAL = 500; // Reduced from 1000ms for faster loading
+  private static minRequestInterval = 500; // Default value; can be configured
   
+  /**
+   * Set the minimum request interval (in ms) for throttling requests.
+   * @param interval The interval in milliseconds.
+   */
+  public static setMinRequestInterval(interval: number) {
+    if (interval < 0) throw new Error('Request interval must be non-negative');
+    ImprovedParser.minRequestInterval = interval;
+  }
   private static defaultConfig: TrackerConfig = {
     name: '',
     hasUpdatesPage: false,

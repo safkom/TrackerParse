@@ -35,7 +35,7 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
             TrackerHub
           </h1>
           <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg">
-            TrackerHub is an ad-free service that allows you to listen to audio from Google Sheets.
+            TrackerParse is an ad-free service that allows you to listen to audio from Google Sheets.
           </p>
           <p className="text-gray-600 dark:text-gray-400">
             Enter a Google Docs spreadsheet URL to view artist tracks and albums

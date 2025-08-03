@@ -52,7 +52,7 @@ export default function DiagnosticPage() {
   };  return (
     <div className="min-h-screen bg-gray-100 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">TrackerHub Diagnostic</h1>
+        <h1 className="text-3xl font-bold mb-6">TrackerParse Diagnostic</h1>
         
         {error && (
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">

@@ -236,7 +236,7 @@ export class ImprovedParser {
         const feedUrl = `https://spreadsheets.google.com/feeds/worksheets/${docId}/public/basic?alt=json`;
         const feedResponse = await axios.get(feedUrl, {
           headers: { 
-            'User-Agent': 'Mozilla/5.0 (compatible; TrackerHub/1.0)',
+            'User-Agent': 'Mozilla/5.0 (compatible; TrackerParse/1.0)',
           },
           timeout: 10000,
         });

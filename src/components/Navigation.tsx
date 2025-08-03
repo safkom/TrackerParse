@@ -16,7 +16,7 @@ const Navigation: React.FC = () => {
               href="/" 
               className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white hover:text-blue-600 dark:hover:text-blue-400 transition-colors"
             >
-              TrackerHub
+              TrackerParse
             </Link>
           </div>
           

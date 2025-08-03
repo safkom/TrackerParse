@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
     const response = await fetch(url, {
       headers: {
-        'User-Agent': 'TrackerHub/1.0',
+        'User-Agent': 'TrackerParse/1.0',
         'Accept': 'text/plain, */*',
       },
     });

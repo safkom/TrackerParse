@@ -49,7 +49,7 @@ export default function MetadataModal({ isOpen, onClose, metadataUrl, trackName 
       // Fetch metadata directly from the API
       fetch(metadataUrl, {
         headers: {
-          'User-Agent': 'TrackerHub/1.0',
+          'User-Agent': 'TrackerParse/1.0',
           'Accept': 'text/plain, */*',
         },
       })

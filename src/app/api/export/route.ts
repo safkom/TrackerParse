@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     // First, get the parsed data
     const parseResponse = await fetch(
       `${request.nextUrl.origin}/api/parse?docId=${docId}`,
-      { headers: { 'User-Agent': 'TrackerHub-Export' } }
+      { headers: { 'User-Agent': 'TrackerParse-Export' } }
     );
 
     if (!parseResponse.ok) {

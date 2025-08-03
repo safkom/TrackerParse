@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "TrackerHub",
+  title: "TrackerParse",
   description: "Music tracker for artist discographies",
 };
 
@@ -71,7 +71,7 @@ export default function RootLayout({
                 <div className="flex items-center justify-center text-sm text-gray-600 dark:text-gray-400">
                   <span>Built with ❤️ for the music tracking community • </span>
                   <a 
-                    href="https://github.com/safkom/TrackerHub" 
+                    href="https://github.com/safkom/TrackerParse" 
                     target="_blank" 
                     rel="noopener noreferrer"
                     className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 transition-colors ml-1"

@@ -195,7 +195,7 @@ export default function Home() {
                   <span>Parse Another Spreadsheet</span>
                 </button>
                 <div className="text-right">
-                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">TrackerHub</h1>
+                  <h1 className="text-xl font-bold text-gray-900 dark:text-white">TrackerParse</h1>
                   <p className="text-sm text-gray-600 dark:text-gray-400">Music Tracker Parser</p>
                 </div>
               </div>

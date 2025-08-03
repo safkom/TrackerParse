@@ -1647,7 +1647,7 @@ export class GoogleDocsParser {
       // Fetch JSON data
       const response = await axios.get(jsonUrl, {
         headers: {
-          'User-Agent': 'Mozilla/5.0 (compatible; TrackerHub/1.0)',
+          'User-Agent': 'Mozilla/5.0 (compatible; TrackerParse/1.0)',
         },
         timeout: 10000,
       });

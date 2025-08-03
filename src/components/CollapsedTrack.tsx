@@ -94,7 +94,7 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
       const metadataUrl = `https://api.pillows.su/api/metadata/${id}.txt`;
       const response = await fetch(metadataUrl, {
         headers: {
-          'User-Agent': 'TrackerHub/1.0',
+          'User-Agent': 'TrackerParse/1.0',
           'Accept': 'text/plain, */*',
         },
       });

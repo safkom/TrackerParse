@@ -1,4 +1,4 @@
-# 🎵 TrackerHub
+# 🎵 TrackerParse
 
 > **A modern, feature-rich web application for parsing and displaying music tracker spreadsheets**
 
@@ -59,8 +59,8 @@
 
 ```bash
 # Clone the repository
-git clone https://github.com/safkom/TrackerHub.git
-cd TrackerHub
+git clone https://github.com/safkom/TrackerParse.git
+cd TrackerParse
 
 # Install dependencies
 npm install
@@ -228,8 +228,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 📞 Support
 
-- **Issues**: [GitHub Issues](https://github.com/safkom/TrackerHub/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/safkom/TrackerHub/discussions)
+- **Issues**: [GitHub Issues](https://github.com/safkom/TrackerParse/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/safkom/TrackerParse/discussions)
 
 ---
 
@@ -237,6 +237,6 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 **Built with ❤️ for the music tracking community**
 
-[🌟 Star this repository](https://github.com/safkom/TrackerHub) if you find it useful!
+[🌟 Star this repository](https://github.com/safkom/TrackerParse) if you find it useful!
 
 </div>

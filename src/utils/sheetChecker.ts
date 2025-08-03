@@ -52,7 +52,7 @@ export class SheetChecker {
       const response = await fetch(csvUrl, {
         method: 'HEAD',
         headers: {
-          'User-Agent': 'TrackerParse/1.0',
+          'User-Agent': USER_AGENT,
         },
       });
 

@@ -334,7 +334,7 @@ export class ImprovedParser {
       
       const response = await axios.get(csvUrl, {
         headers: { 
-          'User-Agent': 'Mozilla/5.0 (compatible; TrackerHub/1.0)',
+          'User-Agent': ImprovedParser.USER_AGENT,
           'Accept': 'text/csv,application/csv,text/plain,*/*'
         },
         timeout: 30000,

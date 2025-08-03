@@ -1,4 +1,4 @@
-# TrackerHub
+# TrackerParse
 
 A web application similar to trackerhub.cx that parses Google Docs spreadsheets and displays artist information with albums and tracks. Features include caching for improved performance and a responsive React interface.
 
@@ -39,7 +39,7 @@ Your Google Sheets should contain the following columns:
 1. Clone the repository:
 ```bash
 git clone <your-repo-url>
-cd TrackerHub
+cd TrackerParse
 ```
 
 2. Install dependencies:

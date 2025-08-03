@@ -30,7 +30,16 @@ export function extractBaseName(title: TrackTitle): string {
   
   // Remove parenthetical content that looks like technical metadata, references, or quality info
   // Keep alternate names that might be useful for grouping
-  baseName = baseName.replace(/\s*\((?:ref\.?[^)]*|prod\.?[^)]*|[\d]+[kmgt]?b|[\d]+hz|[\d]+kbps|lossless|flac|mp3|wav|m4a|aac|ogg|[\d:]+)\)\s*/gi, ' ');
+  const PAREN_REF_PATTERN = 'ref\\.?[^)]*';
+  const PAREN_PROD_PATTERN = 'prod\\.?[^)]*';
+  const PAREN_SIZE_PATTERN = '[\\d]+[kmgt]?b';
+  const PAREN_FREQ_PATTERN = '[\\d]+hz';
+  const PAREN_BITRATE_PATTERN = '[\\d]+kbps';
+  const PAREN_FORMAT_PATTERN = 'lossless|flac|mp3|wav|m4a|aac|ogg';
+  const PAREN_TIME_PATTERN = '[\\d:]+';
+  const PAREN_CONTENT_PATTERN = `${PAREN_REF_PATTERN}|${PAREN_PROD_PATTERN}|${PAREN_SIZE_PATTERN}|${PAREN_FREQ_PATTERN}|${PAREN_BITRATE_PATTERN}|${PAREN_FORMAT_PATTERN}|${PAREN_TIME_PATTERN}`;
+  const PAREN_REGEX = new RegExp(`\\s*\\((${PAREN_CONTENT_PATTERN})\\)\\s*`, 'gi');
+  baseName = baseName.replace(PAREN_REGEX, ' ');
   
   // Remove square brackets with version info or other metadata
   baseName = baseName.replace(/\s*\[[^\]]*\]\s*/g, ' ');

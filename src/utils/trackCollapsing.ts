@@ -105,7 +105,7 @@ function shouldGroupTogether(track1: Track, track2: Track, cleanTitle1: string, 
   
   // Check similarity score - made more strict to avoid false groupings
   const similarity = calculateSimilarity(cleanTitle1.toLowerCase(), cleanTitle2.toLowerCase());
-  if (similarity >= 0.98) {
+  if (similarity >= SIMILARITY_GROUPING_THRESHOLD) {
     return true;
   }
   

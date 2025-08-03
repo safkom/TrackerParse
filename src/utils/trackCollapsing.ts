@@ -49,11 +49,11 @@ function extractCleanTitle(title: string): string {
   // Remove version indicators and technical info (but preserve years)
   cleanTitle = cleanTitle
     // Remove parenthetical version info
-    .replace(/\s*\((?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*|ref\.?[^)]*|prod\.?[^)]*|[\d]+[kmgt]?b|[\d]+hz|[\d]+kbps|lossless|flac|mp3|wav|m4a|aac|ogg|[\d:]+).*?\)\s*/gi, '')
+    .replace(PAREN_VERSION_REGEX, '')
     // Remove square bracket version info
-    .replace(/\s*\[(?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*).*?\]\s*/gi, '')
+    .replace(BRACKET_VERSION_REGEX, '')
     // Remove trailing version indicators (but NOT years - be more specific)
-    .replace(/\s*[-_]\s*(?:v\d+|version\s*\d*|alt\s*\d*|demo\s*\d*|snippet\s*\d*|mix\s*\d*|edit\s*\d*|remix\s*\d*|instrumental\s*\d*|live\s*\d*|acoustic\s*\d*|radio\s*\d*|clean\s*\d*|explicit\s*\d*|final\s*\d*|original\s*\d*|extended\s*\d*|short\s*\d*|full\s*\d*|leak\s*\d*|cdq\s*\d*|hq\s*\d*|take\s*\d*)(?:\s|$)/gi, '')
+    .replace(TRAILING_VERSION_REGEX, '')
     // Remove special emojis for grouping
     .replace(/[⭐✨🏆]/g, '')
     // Clean up extra spaces and punctuation

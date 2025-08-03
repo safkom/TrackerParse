@@ -1,6 +1,6 @@
 import fs from 'fs/promises';
 import path from 'path';
-import { Artist, CachedData } from '@/types';
+import { Artist, CachedData, CachedArtist, CacheMetadata } from '@/types';
 
 const CACHE_DIR = path.join(process.cwd(), 'cache');
 const CACHE_FILE = path.join(CACHE_DIR, 'parsed-docs.json');
@@ -21,18 +21,22 @@ export class CacheManager {
       await this.ensureCacheDir();
       const data = await fs.readFile(CACHE_FILE, 'utf-8');
       return JSON.parse(data);
-    } catch (error) {
+    } catch {
       // Return empty cache if file doesn't exist or is invalid
       return {};
     }
   }
 
-  // Save data to cache
-  static async saveToCache(docId: string, artist: Artist): Promise<void> {
+  // Save data to cache with metadata
+  static async saveToCache(docId: string, artist: Artist, metadata: CacheMetadata): Promise<void> {
     try {
       await this.ensureCacheDir();
       const cache = await this.loadCache();
-      cache[docId] = artist;
+      const cachedArtist: CachedArtist = {
+        ...artist,
+        cacheMetadata: metadata
+      };
+      cache[docId] = cachedArtist;
       await fs.writeFile(CACHE_FILE, JSON.stringify(cache, null, 2));
     } catch (error) {
       console.error('Error saving to cache:', error);
@@ -40,7 +44,7 @@ export class CacheManager {
   }
 
   // Get cached data for a document
-  static async getCachedData(docId: string): Promise<Artist | null> {
+  static async getCachedData(docId: string): Promise<CachedArtist | null> {
     try {
       const cache = await this.loadCache();
       return cache[docId] || null;
@@ -50,8 +54,32 @@ export class CacheManager {
     }
   }
 
+  // Check if cached data needs updating based on metadata
+  static shouldUpdateCache(cachedArtist: CachedArtist, newMetadata: CacheMetadata): boolean {
+    const cached = cachedArtist.cacheMetadata;
+    
+    // Check if ETag has changed (most reliable)
+    if (cached.etag && newMetadata.etag && cached.etag !== newMetadata.etag) {
+      return true;
+    }
+    
+    // Check if Last-Modified has changed
+    if (cached.lastModified && newMetadata.lastModified && cached.lastModified !== newMetadata.lastModified) {
+      return true;
+    }
+    
+    // Check if content length has changed
+    if (cached.contentLength && newMetadata.contentLength && cached.contentLength !== newMetadata.contentLength) {
+      return true;
+    }
+    
+    // Fallback: check if cache is older than 5 minutes (for frequent updates)
+    const cacheAge = Date.now() - new Date(cached.fetchedAt).getTime();
+    return cacheAge > (5 * 60 * 1000); // 5 minutes
+  }
+
   // Check if cached data is fresh (less than 1 hour old)
-  static isCacheFresh(artist: Artist, maxAgeMinutes: number = 60): boolean {
+  static isCacheFresh(artist: CachedArtist, maxAgeMinutes: number = 60): boolean {
     const lastUpdated = new Date(artist.lastUpdated);
     const now = new Date();
     const diffMinutes = (now.getTime() - lastUpdated.getTime()) / (1000 * 60);

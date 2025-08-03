@@ -1,5 +1,5 @@
 {
-  "name": "trackerhub",
+  "name": "trackerparse",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,11 +16,14 @@
     "next": "15.4.5",
     "papaparse": "^5.5.3",
     "react": "19.1.0",
-    "react-dom": "19.1.0"
+    "react-dom": "19.1.0",
+    "react-h5-audio-player": "^3.10.0",
+    "react-player": "^3.3.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3",
     "@tailwindcss/postcss": "^4",
+    "@types/cheerio": "^0.22.35",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

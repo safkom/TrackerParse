@@ -1,0 +1,1188 @@
+import axios from 'axios';
+import { Artist, Album, Track, TrackTitle, UpdateEntry, StatEntry } from '@/types';
+
+export class GoogleDocsParser {
+  // Convert Google Docs URL to JSON API URL
+  static getJsonUrl(googleDocsUrl: string, gid?: string): string {
+    // Extract the document ID from various Google Docs URL formats
+    let docId = '';
+    
+    // Handle different URL formats
+    if (googleDocsUrl.includes('/d/')) {
+      const match = googleDocsUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        docId = match[1];
+      }
+    } else if (googleDocsUrl.includes('id=')) {
+      const match = googleDocsUrl.match(/id=([a-zA-Z0-9-_]+)/);
+      if (match) {
+        docId = match[1];
+      }
+    }
+    
+    if (!docId) {
+      throw new Error('Invalid Google Docs URL format');
+    }
+    
+    // Return Google Sheets JSON API URL with optional gid for specific sheet
+    if (gid) {
+      return `https://docs.google.com/spreadsheets/d/${docId}/gviz/tq?tqx=out:json&gid=${gid}`;
+    }
+    return `https://docs.google.com/spreadsheets/d/${docId}/gviz/tq?tqx=out:json`;
+  }
+
+  // Parse Google Sheets JSON response
+  static parseGoogleSheetsJson(jsonText: string): any {
+    console.log('Raw JSON response preview:', jsonText.substring(0, 500) + '...');
+    
+    // Google Sheets JSON response can have different formats:
+    // 1. /*O_o*/google.visualization.DataTable.setResponse({"version":"0.6","reqId":"0","status":"ok","sig":"1234567890","table":...});
+    // 2. /*O_o*/google.visualization.Query.setResponse({"version":"0.6","reqId":"0","status":"ok","sig":"1234567890","table":...});
+    // 3. google.visualization.DataTable.setResponse({"version":"0.6",...});
+    // 4. google.visualization.Query.setResponse({"version":"0.6",...});
+    // 5. Sometimes just the JSON object directly
+    
+    let jsonData: any;
+    
+    // Try to extract JSON from function call format (both DataTable and Query)
+    const functionCallMatch = jsonText.match(/google\.visualization\.(?:DataTable|Query)\.setResponse\((.+)\);?\s*$/);
+    if (functionCallMatch) {
+      console.log('Found function call format');
+      try {
+        jsonData = JSON.parse(functionCallMatch[1]);
+      } catch (e) {
+        console.error('Failed to parse JSON from function call:', e);
+        throw new Error(`Invalid JSON in Google Sheets response: ${e instanceof Error ? e.message : 'Unknown error'}`);
+      }
+    } else {
+      // Try to remove the /*O_o*/ prefix and extract JSON
+      let cleanedText = jsonText.replace(/^\/\*.*?\*\/\s*/, '');
+      
+      // Try function call format again after prefix removal (both DataTable and Query)
+      const cleanFunctionMatch = cleanedText.match(/google\.visualization\.(?:DataTable|Query)\.setResponse\((.+)\);?\s*$/);
+      if (cleanFunctionMatch) {
+        console.log('Found function call format after prefix removal');
+        try {
+          jsonData = JSON.parse(cleanFunctionMatch[1]);
+        } catch (e) {
+          console.error('Failed to parse JSON from cleaned function call:', e);
+          throw new Error(`Invalid JSON in Google Sheets response: ${e instanceof Error ? e.message : 'Unknown error'}`);
+        }
+      } else {
+        // Try to parse as direct JSON
+        try {
+          console.log('Attempting direct JSON parse');
+          jsonData = JSON.parse(cleanedText);
+        } catch (e) {
+          console.error('All parsing attempts failed');
+          console.log('Cleaned text preview:', cleanedText.substring(0, 500));
+          throw new Error(`Invalid Google Sheets JSON response format. Unable to parse response.`);
+        }
+      }
+    }
+    
+    if (jsonData.status && jsonData.status !== 'ok') {
+      throw new Error(`Google Sheets API error: ${jsonData.status}`);
+    }
+    
+    // Return the table data, or the whole object if no table property
+    return jsonData.table || jsonData;
+  }
+
+  // Convert Google Sheets JSON table to rows array
+  static convertJsonToRows(table: any): string[][] {
+    const rows: string[][] = [];
+    
+    if (!table.rows || table.rows.length === 0) {
+      return rows;
+    }
+    
+    // Process each row
+    for (const row of table.rows) {
+      const rowData: string[] = [];
+      
+      if (row.c) {
+        // Process each cell in the row
+        for (const cell of row.c) {
+          if (cell === null) {
+            rowData.push('');
+          } else if (cell.v !== undefined) {
+            // Use formatted value if available, otherwise raw value
+            const cellValue = cell.f || cell.v || '';
+            rowData.push(String(cellValue).trim());
+          } else {
+            rowData.push('');
+          }
+        }
+      }
+      
+      // Only add non-empty rows
+      if (rowData.some(cell => cell.length > 0)) {
+        rows.push(rowData);
+      }
+    }
+    
+    return rows;
+  }
+
+  // Convert JSON table data to our internal format
+  static parseJsonData(table: any, sheetType: 'unreleased' | 'best' | 'grails' | 'worst' = 'unreleased'): any {
+    const rows = this.convertJsonToRows(table);
+    
+    if (rows.length === 0) {
+      return { sheets: [], metadata: {} };
+    }
+    
+    console.log('First few rows for analysis:');
+    for (let i = 0; i < Math.min(5, rows.length); i++) {
+      console.log(`Row ${i}:`, rows[i]);
+    }
+    
+    // Find header row - look for common tracker columns
+    let headerRowIndex = -1;
+    let headers: string[] = [];
+    
+    // Look for rows that contain standard tracker column names
+    for (let i = 0; i < Math.min(20, rows.length); i++) {
+      const row = rows[i];
+      
+      // Check if this row has era, name, and other common columns
+      const hasEra = row.some(cell => cell && cell.toLowerCase().trim() === 'era');
+      const hasName = row.some(cell => cell && (
+        cell.toLowerCase().trim() === 'name' || 
+        cell.toLowerCase().trim() === 'track name' ||
+        cell.toLowerCase().trim() === 'song name'
+      ));
+      const hasQuality = row.some(cell => cell && cell.toLowerCase().includes('quality'));
+      
+      // If we find a row with these key columns, it's likely the header
+      if (hasEra && hasName) {
+        headerRowIndex = i;
+        headers = row.map(cell => cell || '');
+        console.log(`Found proper header row at index ${i}`);
+        break;
+      }
+      
+      // Alternative: look for rows with multiple expected column patterns
+      const columnKeywords = ['era', 'name', 'track', 'song', 'quality', 'link', 'date', 'notes', 'length'];
+      const matchCount = row.filter(cell => {
+        if (!cell) return false;
+        const cellLower = cell.toLowerCase().trim();
+        return columnKeywords.some(keyword => cellLower.includes(keyword));
+      }).length;
+      
+      if (matchCount >= 3) { // At least 3 column headers
+        headerRowIndex = i;
+        headers = row.map(cell => cell || '');
+        console.log(`Found likely header row at index ${i} with ${matchCount} matching columns`);
+        break;
+      }
+    }
+    
+    // If no clear header found, check if first row might be malformed headers
+    if (headerRowIndex === -1) {
+      // The data might be structured differently - let's check the column labels from the API
+      if (table.cols && table.cols.length > 0) {
+        console.log('Using column labels from API response');
+        headers = table.cols.map((col: any) => {
+          // Extract the actual column name from the label
+          let label = col.label || col.id || '';
+          
+          // Clean up the label - often contains extra text
+          if (label.includes('\n')) {
+            // Split by newline and take the first clean part
+            const parts = label.split('\n');
+            label = parts.find(part => part.trim().length > 0 && part.trim().length < 50) || parts[0];
+          }
+          
+          return label.trim();
+        });
+        
+        headerRowIndex = 0; // Start processing from first data row
+        console.log('Extracted headers from API:', headers);
+      } else {
+        console.warn('No clear header row found, using first row as headers');
+        headerRowIndex = 0;
+        headers = rows[0] || [];
+      }
+    }
+    
+    console.log('Final headers:', headers);
+    console.log('Header row index:', headerRowIndex);
+    
+    // Extract metadata from the API column labels or early rows
+    const metadata: any = {
+      title: '',
+      artistName: '',
+      discordLink: '',
+      description: ''
+    };
+    
+    // Look for metadata in column labels and early rows
+    const searchRows = Math.min(headerRowIndex + 10, rows.length);
+    for (let i = 0; i < searchRows; i++) {
+      const row = rows[i];
+      for (const cell of row) {
+        if (!cell) continue;
+        
+        // Extract Discord link
+        const discordMatch = cell.match(/(?:https?:\/\/)?discord\.(?:gg|com\/invite)\/[a-zA-Z0-9]+/i);
+        if (discordMatch && !metadata.discordLink) {
+          metadata.discordLink = discordMatch[0].startsWith('http') ? discordMatch[0] : `https://${discordMatch[0]}`;
+        }
+        
+        // Extract artist name from tracker title
+        if (cell.toLowerCase().includes('tracker')) {
+          let cleanTitle = cell.trim()
+            .replace(/^\d{1,2}\.\d{1,2}\s+/i, '') // Remove date prefixes
+            .replace(/^copy\s+of\s+/i, '') // Remove "Copy of"
+            .replace(/\s*-\s*Google\s+(?:preglednice|Spreadsheets?|Sheets?)/i, ''); // Remove Google suffixes
+          
+          const trackerMatch = cleanTitle.match(/^(.+?)\s+tracker/i);
+          if (trackerMatch) {
+            metadata.artistName = trackerMatch[1].trim();
+          } else {
+            metadata.artistName = cleanTitle.replace(/tracker/i, '').trim();
+          }
+          metadata.title = cell;
+        }
+        
+        // Look for "Ye" references to identify Kanye West
+        if (cell.toLowerCase().includes('ye tracker') || cell.toLowerCase().includes('kanye')) {
+          metadata.artistName = 'Kanye West (Ye)';
+        }
+      }
+    }
+    
+    // Also check the API column labels for metadata
+    if (table.cols) {
+      for (const col of table.cols) {
+        const label = col.label || '';
+        
+        // Extract Discord link from labels
+        const discordMatch = label.match(/(?:https?:\/\/)?discord\.(?:gg|com\/invite)\/[a-zA-Z0-9]+/i);
+        if (discordMatch && !metadata.discordLink) {
+          metadata.discordLink = discordMatch[0].startsWith('http') ? discordMatch[0] : `https://${discordMatch[0]}`;
+        }
+        
+        // Look for Ye/Kanye references
+        if (label.toLowerCase().includes('ye tracker') || label.toLowerCase().includes('kanye')) {
+          metadata.artistName = 'Kanye West (Ye)';
+        }
+      }
+    }
+    
+    console.log('Extracted metadata:', metadata);
+    
+    // Create column mapping - be more flexible with matching
+    const columnMap: Record<string, number> = {};
+    headers.forEach((header, index) => {
+      const lowerHeader = header.toLowerCase().trim();
+      
+      if (lowerHeader === 'era' || lowerHeader.includes('era')) {
+        columnMap['era'] = index;
+      } else if (lowerHeader === 'name' || lowerHeader === 'track name' || lowerHeader === 'song name' || 
+                 lowerHeader.includes('name') && !lowerHeader.includes('file')) {
+        columnMap['name'] = index;
+      } else if (lowerHeader.includes('notes') || lowerHeader.includes('note')) {
+        columnMap['notes'] = index;
+      } else if (lowerHeader.includes('track length') || lowerHeader.includes('length') || lowerHeader.includes('duration')) {
+        columnMap['trackLength'] = index;
+      } else if (lowerHeader.includes('leak date') || (lowerHeader.includes('leak') && lowerHeader.includes('date'))) {
+        columnMap['leakDate'] = index;
+      } else if (lowerHeader.includes('file date') || (lowerHeader.includes('file') && lowerHeader.includes('date'))) {
+        columnMap['fileDate'] = index;
+      } else if (lowerHeader === 'type' || lowerHeader.includes('type')) {
+        columnMap['type'] = index;
+      } else if (lowerHeader.includes('portion') || lowerHeader.includes('available')) {
+        columnMap['availableLength'] = index;
+      } else if (lowerHeader.includes('quality')) {
+        columnMap['quality'] = index;
+      } else if (lowerHeader.includes('link') || lowerHeader === 'links' || lowerHeader.includes('url')) {
+        columnMap['links'] = index;
+      }
+    });
+    
+    console.log('Column mapping:', columnMap);
+    
+    // Process track data
+    const tracks: any[] = [];
+    const eras = new Map<string, any>();
+    let currentEra = '';
+    
+    // Find where main data ends (look for footer sections)
+    let mainDataEnd = rows.length;
+    for (let i = headerRowIndex + 1; i < rows.length; i++) {
+      const row = rows[i];
+      const firstCell = row[0] ? row[0].trim().toLowerCase() : '';
+      
+      if (firstCell.includes('update notes') || 
+          firstCell.includes('total links') || 
+          firstCell.includes('quality summary') ||
+          firstCell.includes('availability') ||
+          firstCell.includes('tracker guidelines')) {
+        mainDataEnd = i;
+        break;
+      }
+    }
+    
+    console.log(`Processing rows ${headerRowIndex + 1} to ${mainDataEnd}`);
+    
+    // Process each row
+    for (let i = headerRowIndex + 1; i < mainDataEnd; i++) {
+      const row = rows[i];
+      
+      if (!row || row.every(cell => !cell || cell.trim() === '')) {
+        continue; // Skip empty rows
+      }
+      
+      const eraValue = columnMap['era'] !== undefined ? (row[columnMap['era']] || '').trim() : '';
+      const nameValue = columnMap['name'] !== undefined ? (row[columnMap['name']] || '').trim() : '';
+      const notesValue = columnMap['notes'] !== undefined ? (row[columnMap['notes']] || '') : '';
+      const trackLengthValue = columnMap['trackLength'] !== undefined ? (row[columnMap['trackLength']] || '') : '';
+      const fileDateValue = columnMap['fileDate'] !== undefined ? (row[columnMap['fileDate']] || '') : '';
+      const leakDateValue = columnMap['leakDate'] !== undefined ? (row[columnMap['leakDate']] || '') : '';
+      const availableLengthValue = columnMap['availableLength'] !== undefined ? (row[columnMap['availableLength']] || '') : '';
+      const qualityValue = columnMap['quality'] !== undefined ? (row[columnMap['quality']] || '') : '';
+      const typeValue = columnMap['type'] !== undefined ? (row[columnMap['type']] || '') : '';
+      const linksValue = columnMap['links'] !== undefined ? (row[columnMap['links']] || '') : '';
+      
+      // Debug first few rows
+      if (i < headerRowIndex + 10) {
+        console.log(`Row ${i} - Era: "${eraValue}", Name: "${nameValue}", Quality: "${qualityValue}"`);
+        console.log(`Full row:`, row);
+      }
+      
+      // Skip template/instruction rows
+      const isTemplateRow = nameValue.toLowerCase().includes('how to') ||
+                           nameValue.toLowerCase().includes('template') ||
+                           nameValue.toLowerCase().includes('add a new entry') ||
+                           eraValue.toLowerCase().includes('template era');
+      
+      if (isTemplateRow) {
+        console.log(`Skipping template row: ${nameValue}`);
+        continue;
+      }
+      
+      // Different approach: in this tracker, the era name appears to be in the first column
+      // and track names are in the second column
+      // Let's look at the actual structure more carefully
+      
+      const firstCol = row[0] ? row[0].trim() : '';
+      const secondCol = row[1] ? row[1].trim() : '';
+      
+      // Skip footer/navigation rows
+      const isFooterRow = firstCol.toLowerCase() === 'links' ||
+                         firstCol.toLowerCase() === 'availability' ||
+                         secondCol.toLowerCase() === 'availability' ||
+                         (firstCol.toLowerCase().includes('link') && secondCol.toLowerCase().includes('availabilit')) ||
+                         nameValue.toLowerCase() === 'availability';
+      
+      if (isFooterRow) {
+        console.log(`Skipping template/footer row: Era="${firstCol}", Name="${secondCol}"`);
+        continue;
+      }
+      
+      // Check if this is a sub-era row
+      // Pattern: First column says "Sub-era:" and second column has the sub-era name
+      const isSubEraRow = firstCol && 
+                         (firstCol.toLowerCase().includes('sub-era') || firstCol.toLowerCase() === 'another:') &&
+                         secondCol && 
+                         !secondCol.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && // Second col is not a date
+                         !secondCol.includes('http'); // Not a URL
+      
+      if (isSubEraRow) {
+        // This is a sub-era - treat it as a separate era but with a parent relationship
+        let subEraName = secondCol.trim();
+        
+        // Clean up the sub-era name
+        if (subEraName.includes('\n')) {
+          const lines = subEraName.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+          subEraName = lines[0];
+        }
+        
+        // If we have a parent era, create a combined name
+        if (currentEra) {
+          subEraName = `${currentEra}: ${subEraName}`;
+        }
+        
+        currentEra = subEraName;
+        console.log(`Found sub-era: ${currentEra}`);
+        
+        // Extract timeline info from other columns for sub-era
+        let subEraNotes = '';
+        let subEraDescription = '';
+        
+        for (let j = 2; j < row.length; j++) {
+          const cell = row[j] || '';
+          if (!cell.trim()) continue;
+          
+          // Timeline info
+          if (cell.includes('(') && cell.includes(')')) {
+            const hasDatePattern = cell.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)|(\?\?\?\?\?\?\?\?)/);
+            if (hasDatePattern && !subEraNotes) {
+              subEraNotes = cell;
+            }
+          } else if (!cell.includes('http') && cell.length > 10 && !subEraDescription) {
+            subEraDescription = cell;
+          }
+        }
+        
+        eras.set(currentEra, {
+          name: currentEra,
+          description: subEraDescription,
+          notes: subEraNotes,
+          picture: '',
+          tracks: []
+        });
+        continue;
+      }
+      
+      // Check if this is an era metadata row
+      // Pattern: First column has file counts, second column has era name
+      const isMetadataRow = firstCol && 
+                           firstCol.match(/\d+\s+(?:OG File|Full|Tagged|Partial|Snippet|Stem Bounce|Unavailable)/i) &&
+                           secondCol && 
+                           !secondCol.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && // Second col is not a date
+                           !secondCol.match(/^\w{3}\s+\d{1,2},\s+\d{4}$/) && // Not "Jul 31, 2017" format
+                           !secondCol.includes('http'); // Not a URL
+      
+      if (isMetadataRow) {
+        // The actual era name is in the second column
+        // Clean up the era name by removing alternate titles in parentheses and handling newlines
+        let cleanEraName = secondCol;
+        
+        // Split by newlines and take the first non-empty line as the main title
+        if (cleanEraName.includes('\n')) {
+          const lines = cleanEraName.split('\n').map(line => line.trim()).filter(line => line.length > 0);
+          cleanEraName = lines[0]; // Take the first line as the main era name
+          
+          // If there are additional lines that aren't just alternate titles, they might be descriptions
+          const additionalInfo = lines.slice(1).filter(line => 
+            !line.match(/^\([^)]*\)$/) // Not just parenthetical content
+          ).join(' ');
+        }
+        
+        // Remove standalone parenthetical alternate titles from the end
+        cleanEraName = cleanEraName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+        
+        currentEra = cleanEraName;
+        console.log(`Found era with metadata: ${currentEra}`);
+        console.log(`Original era text: ${secondCol}`);
+        console.log(`Metadata: ${firstCol}`);
+        
+        // Parse metadata from first column
+        const metadata = this.parseEraMetadata(firstCol);
+        
+        // Extract era image and description from other columns
+        let eraImage = '';
+        let eraDescription = '';
+        let eraNotes = '';
+        
+        for (let j = 2; j < row.length; j++) {
+          const cell = row[j] || '';
+          if (!cell.trim()) continue;
+          
+          // Look for image URLs
+          const imageMatch = cell.match(/https?:\/\/[^\s"'<>()]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)/i) ||
+                           cell.match(/https?:\/\/drive\.google\.com\/[^\s"'<>()]+/i) ||
+                           cell.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
+          if (imageMatch && !eraImage) {
+            eraImage = imageMatch[0];
+          }
+          
+          // Separate notes (in parentheses with dates) from description
+          if (cell.includes('(') && cell.includes(')')) {
+            // Check if this looks like a timeline entry with dates
+            const hasDatePattern = cell.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)|(\?\?\?\?\?\?\?\?)/);
+            if (hasDatePattern && !eraNotes) {
+              eraNotes = cell;
+            } else if (!eraNotes) {
+              eraNotes = cell;
+            }
+          } else if (!cell.includes('http') && cell.length > 10 && !eraDescription) {
+            eraDescription = cell;
+          }
+        }
+        
+        // Update existing era if it exists, otherwise create new one
+        if (eras.has(currentEra)) {
+          const existingEra = eras.get(currentEra)!;
+          eras.set(currentEra, {
+            ...existingEra,
+            description: eraDescription || existingEra.description,
+            notes: eraNotes || existingEra.notes,
+            picture: eraImage || existingEra.picture,
+            metadata: metadata
+          });
+        } else {
+          eras.set(currentEra, {
+            name: currentEra,
+            description: eraDescription,
+            notes: eraNotes,
+            picture: eraImage,
+            metadata: metadata,
+            tracks: []
+          });
+        }
+        continue;
+      }
+      
+      // Check if first column contains an era name (fallback for eras without metadata)
+      const isEraName = firstCol && 
+                       !firstCol.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && // Not a date
+                       !firstCol.match(/^\w{3}\s+\d{1,2},\s+\d{4}$/) && // Not "Jul 31, 2017" format
+                       !firstCol.match(/^\d+:\d+$/) && // Not a time
+                       !firstCol.includes('http') && // Not a URL
+                       !firstCol.match(/\d+\s+(?:OG File|Full|Tagged|Partial|Snippet|Stem Bounce|Unavailable)/i) && // Not metadata
+                       !firstCol.includes('(') && // Not a description with parentheses like "Good Ass Job (Winter Spring Summer Fall)"
+                       !firstCol.toLowerCase().includes('timeline') && // Not timeline info
+                       !secondCol; // Second column is empty (indicates era row)
+      
+      // Check if this is an era row - fallback for eras without metadata
+      if (isEraName && !secondCol) {
+        currentEra = firstCol;
+        console.log(`Found era without metadata: ${currentEra}`);
+        
+        // Extract era image and description from other columns
+        let eraImage = '';
+        let eraDescription = '';
+        
+        for (let j = 2; j < row.length; j++) {
+          const cell = row[j];
+          if (!cell) continue;
+          
+          // Look for image URLs
+          const imageMatch = cell.match(/https?:\/\/[^\s"'<>()]+\.(jpg|jpeg|png|gif|webp|svg|bmp|tiff)/i) ||
+                           cell.match(/https?:\/\/drive\.google\.com\/[^\s"'<>()]+/i) ||
+                           cell.match(/https?:\/\/lh[0-9]+\.googleusercontent\.com\/[^\s"'<>()]+/i);
+          if (imageMatch && !eraImage) {
+            eraImage = imageMatch[0];
+          }
+          
+          // Use non-URL text as description
+          if (!cell.includes('http') && cell.length > 10 && !eraDescription) {
+            eraDescription = cell;
+          }
+        }
+        
+        eras.set(currentEra, {
+          name: currentEra,
+          description: eraDescription || notesValue,
+          picture: eraImage,
+          tracks: []
+        });
+        continue;
+      }
+      
+      // Check if this is additional era information (description, timeline, etc.)
+      // These should be added to the current era if one exists
+      if (currentEra && eras.has(currentEra) && firstCol && !secondCol) {
+        const currentEraData = eras.get(currentEra)!;
+        
+        // If it's timeline info, add to notes
+        if (firstCol.toLowerCase().includes('timeline') || 
+            (firstCol.includes('(') && firstCol.includes(')')) ||
+            firstCol.match(/\(\d{1,2}\/\d{1,2}\/\d{4}\)/) || 
+            firstCol.match(/\(\?\?\?\?\?\?\?\?\)/)) {
+          if (!currentEraData.notes) {
+            currentEraData.notes = firstCol;
+          } else {
+            currentEraData.notes += '\n' + firstCol;
+          }
+        } 
+        // If it looks like an alternate title/description, add to description
+        else if (firstCol.includes('(') || firstCol.length > 10) {
+          if (!currentEraData.description) {
+            currentEraData.description = firstCol;
+          } else {
+            currentEraData.description += ' ' + firstCol;
+          }
+        }
+        
+        // Update the era data
+        eras.set(currentEra, currentEraData);
+        continue;
+      }
+      
+      // If we have a track name (second column), this is a track row
+      if (secondCol) {
+        // The era might be in the first column of this row, or we use the current era
+        let trackEra = currentEra;
+        
+        // If first column has content and it's not a track detail, it might be an era
+        if (firstCol && firstCol !== secondCol && !firstCol.match(/^\d+:\d+$/) && !firstCol.includes('http')) {
+          // Check if this looks like an era name
+          const looksLikeEra = !firstCol.match(/^\d{1,2}\/\d{1,2}\/\d{4}$/) && 
+                              !firstCol.match(/^\w{3}\s+\d{1,2},\s+\d{4}$/) &&
+                              firstCol.length > 3;
+          
+          if (looksLikeEra) {
+            trackEra = firstCol;
+            currentEra = firstCol;
+            
+            // Create era if it doesn't exist
+            if (!eras.has(currentEra)) {
+              eras.set(currentEra, {
+                name: currentEra,
+                description: '',
+                picture: '',
+                tracks: []
+              });
+            } else {
+              // If era exists but is the same name, use the existing one
+              const existingEra = eras.get(currentEra)!;
+              trackEra = existingEra.name;
+              currentEra = existingEra.name;
+            }
+          }
+        }
+        
+        // Ensure we have a current era
+        if (!trackEra) {
+          trackEra = 'Miscellaneous';
+          currentEra = trackEra;
+          if (!eras.has(currentEra)) {
+            eras.set(currentEra, {
+              name: currentEra,
+              description: '',
+              picture: '',
+              tracks: []
+            });
+          }
+        }
+        
+        // Create track object using the second column as the name
+        const track = {
+          era: trackEra,
+          name: secondCol,
+          notes: notesValue,
+          trackLength: trackLengthValue,
+          fileDate: fileDateValue,
+          leakDate: leakDateValue,
+          availableLength: availableLengthValue,
+          quality: typeValue && qualityValue ? `${typeValue} - ${qualityValue}` : qualityValue || typeValue || '',
+          type: typeValue,
+          links: linksValue ? linksValue.split(/[,\n]/).map(link => link.trim()).filter(link => link) : [],
+          isSpecial: secondCol.includes('🏆') || secondCol.includes('✨') || secondCol.includes('⭐'),
+          isWorst: secondCol.includes('🗑️'),
+          isGrail: secondCol.includes('💎') || notesValue.toLowerCase().includes('grail') || qualityValue.toLowerCase().includes('snippet') || availableLengthValue.toLowerCase().includes('snippet'),
+          specialType: secondCol.includes('🏆') ? '🏆' : 
+                      secondCol.includes('✨') ? '✨' : 
+                      secondCol.includes('⭐') ? '⭐' : 
+                      secondCol.includes('🗑️') ? '🗑️' : 
+                      secondCol.includes('💎') ? '💎' : undefined
+        };
+        
+        console.log(`Adding track: ${secondCol} to era: ${trackEra}`);
+        tracks.push(track);
+        
+        // Ensure the era exists and add the track to it
+        if (eras.has(trackEra)) {
+          eras.get(trackEra)!.tracks.push(track);
+        } else {
+          console.warn(`Era ${trackEra} not found in eras map when adding track ${secondCol}`);
+          // Create the era if it doesn't exist
+          eras.set(trackEra, {
+            name: trackEra,
+            description: '',
+            picture: '',
+            tracks: [track]
+          });
+        }
+      }
+    }
+    
+    console.log(`Found ${eras.size} eras with ${tracks.length} total tracks`);
+    
+    return {
+      metadata,
+      columnMap,
+      headers,
+      eras: Array.from(eras.values()),
+      tracks,
+      totalRows: rows.length,
+      dataRows: mainDataEnd - headerRowIndex - 1
+    };
+  }
+
+  // Parse track title to extract main name, features, collaborators, producers, and alternate names
+  static parseTrackTitle(rawTitle: string): TrackTitle {
+    if (!rawTitle) {
+      return {
+        main: 'Unknown',
+        isUnknown: true,
+        features: [],
+        collaborators: [],
+        producers: [],
+        references: [],
+        alternateNames: []
+      };
+    }
+
+    let title = rawTitle.trim();
+    const features: string[] = [];
+    const collaborators: string[] = [];
+    const producers: string[] = [];
+    const references: string[] = [];
+    const alternateNames: string[] = [];
+    
+    // Extract content from parentheses - this is where alternate names usually are
+    const parenMatches = title.match(/\(([^)]+)\)/g);
+    if (parenMatches) {
+      for (const parenMatch of parenMatches) {
+        const content = parenMatch.slice(1, -1); // Remove parentheses
+        
+        // Check if it's a reference (Ref.) - add to references
+        if (content.match(/\b(?:ref\.?|reference)\s+(.+)/i)) {
+          const refMatch = content.match(/\b(?:ref\.?|reference)\s+(.+)/i);
+          if (refMatch) {
+            references.push(refMatch[1].trim());
+            title = title.replace(parenMatch, '').trim();
+            continue;
+          }
+        }
+        
+        // Check if it's a production credit
+        if (content.match(/\b(?:prod\.?|produced|production)\s+(?:by\s+)?(.+)/i)) {
+          const prodMatch = content.match(/\b(?:prod\.?|produced|production)\s+(?:by\s+)?(.+)/i);
+          if (prodMatch) {
+            producers.push(prodMatch[1].trim());
+            title = title.replace(parenMatch, '').trim();
+            continue;
+          }
+        }
+        
+        // Check if it's a feature
+        if (content.match(/\b(?:ft\.?|feat\.?|featuring)\s+(.+)/i)) {
+          const featMatch = content.match(/\b(?:ft\.?|feat\.?|featuring)\s+(.+)/i);
+          if (featMatch) {
+            features.push(featMatch[1].trim());
+            title = title.replace(parenMatch, '').trim();
+            continue;
+          }
+        }
+        
+        // Check if it's a collaboration
+        if (content.match(/\b(?:with|w\/)\s+(.+)/i)) {
+          const withMatch = content.match(/\b(?:with|w\/)\s+(.+)/i);
+          if (withMatch) {
+            collaborators.push(withMatch[1].trim());
+            title = title.replace(parenMatch, '').trim();
+            continue;
+          }
+        }
+        
+        // Check if it's a quality/technical indicator first
+        if (content.match(/\b(?:\d+(?:k|m|g)?b|lossless|flac|mp3|wav|m4a|aac|ogg|\d+hz|\d+kbps|[\d:]+)\b/i)) {
+          // This is technical info, not an alternate name
+          continue;
+        }
+        
+        // Check if it contains ONLY version info that's NOT an alternate name
+        if (content.match(/^\s*(?:demo|snippet|mix|edit|remix|instrumental|live|acoustic|radio|clean|explicit|final|original|extended|short|full|leak|cdq|hq)\s*$/i)) {
+          // This is ONLY version info, not an alternate name
+          continue;
+        }
+        
+        // Everything else in parentheses should be treated as alternate names
+        // If it contains commas, it's likely multiple alternate names
+        if (content.includes(',')) {
+          const altTitles = content.split(',').map(alt => alt.trim()).filter(alt => alt.length > 0);
+          alternateNames.push(...altTitles);
+          title = title.replace(parenMatch, '').trim();
+        } else if (content.length > 1) { // Single alternate name (allow single words)
+          alternateNames.push(content.trim());
+          title = title.replace(parenMatch, '').trim();
+        }
+      }
+    }
+    
+    // Clean up title after parentheses removal
+    title = title.replace(/\s+/g, ' ').trim();
+    
+    // Handle artist collaborations - extract main track name
+    // If title starts with "Artist Name - Track Name", extract just the track name
+    const artistCollabMatch = title.match(/^[^-]+ - (.+)$/);
+    if (artistCollabMatch) {
+      title = artistCollabMatch[1].trim();
+    }
+    
+    // Extract features from the main title (outside parentheses)
+    const featInTitle = title.match(/\s+(?:ft\.?|feat\.?|featuring)\s+(.+?)(?:\s+(?:prod\.?|produced|with|w\/)|$)/i);
+    if (featInTitle) {
+      features.push(featInTitle[1].trim());
+      title = title.replace(featInTitle[0], '').trim();
+    }
+    
+    // Extract collaborations from main title
+    const withInTitle = title.match(/\s+(?:with|w\/)\s+(.+?)(?:\s+(?:prod\.?|produced|ft\.?|feat\.?|featuring)|$)/i);
+    if (withInTitle) {
+      collaborators.push(withInTitle[1].trim());
+      title = title.replace(withInTitle[0], '').trim();
+    }
+    
+    // Extract production credits from main title
+    const prodInTitle = title.match(/\s+(?:prod\.?|produced|production)\s+(?:by\s+)?(.+)$/i);
+    if (prodInTitle) {
+      producers.push(prodInTitle[1].trim());
+      title = title.replace(prodInTitle[0], '').trim();
+    }
+    
+    return {
+      main: title || 'Unknown',
+      isUnknown: (title || '').includes('???') || !title || title.toLowerCase().includes('unknown'),
+      features,
+      collaborators,
+      producers,
+      references,
+      alternateNames
+    };
+  }
+
+  // Parse era metadata string to extract file counts
+  static parseEraMetadata(metadataString: string): any {
+    const metadata = {
+      ogFiles: 0,
+      fullFiles: 0,
+      taggedFiles: 0,
+      partialFiles: 0,
+      snippetFiles: 0,
+      stemBounceFiles: 0,
+      unavailableFiles: 0
+    };
+
+    if (!metadataString) return metadata;
+
+    // Extract different file type counts using regex
+    const ogMatch = metadataString.match(/(\d+)\s+OG\s+File/i);
+    if (ogMatch) metadata.ogFiles = parseInt(ogMatch[1]);
+
+    const fullMatch = metadataString.match(/(\d+)\s+Full/i);
+    if (fullMatch) metadata.fullFiles = parseInt(fullMatch[1]);
+
+    const taggedMatch = metadataString.match(/(\d+)\s+Tagged/i);
+    if (taggedMatch) metadata.taggedFiles = parseInt(taggedMatch[1]);
+
+    const partialMatch = metadataString.match(/(\d+)\s+Partial/i);
+    if (partialMatch) metadata.partialFiles = parseInt(partialMatch[1]);
+
+    const snippetMatch = metadataString.match(/(\d+)\s+Snippet/i);
+    if (snippetMatch) metadata.snippetFiles = parseInt(snippetMatch[1]);
+
+    const stemMatch = metadataString.match(/(\d+)\s+Stem\s+Bounce/i);
+    if (stemMatch) metadata.stemBounceFiles = parseInt(stemMatch[1]);
+
+    const unavailableMatch = metadataString.match(/(\d+)\s+Unavailable/i);
+    if (unavailableMatch) metadata.unavailableFiles = parseInt(unavailableMatch[1]);
+
+    return metadata;
+  }
+
+  /**
+   * Parse album art from the Art tab of the Google Sheets
+   */
+  private static async parseAlbumArt(googleDocsUrl: string): Promise<Map<string, string>> {
+    const artMap = new Map<string, string>();
+    
+    try {
+      // Extract the document ID from the URL
+      const docId = GoogleDocsParser.getDocumentId(googleDocsUrl);
+      if (!docId) {
+        console.log('Could not extract document ID for art parsing');
+        return artMap;
+      }
+      
+      // Try to get the Art tab - use known gid for Kanye tracker art sheet
+      const artGids = ['1219860820', '1', '2', '3', '4', '5']; // Start with known art sheet gid
+      
+      for (const gid of artGids) {
+        try {
+          const artUrl = GoogleDocsParser.getJsonUrl(docId, gid);
+          console.log(`Trying to fetch art from gid ${gid}:`, artUrl);
+          
+          const response = await axios.get(artUrl, {
+            timeout: 10000,
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+          });
+          
+          const jsonData = GoogleDocsParser.parseGoogleSheetsJson(response.data);
+          if (!jsonData || !jsonData.table) {
+            continue;
+          }
+          
+          const rows = GoogleDocsParser.convertJsonToRows(jsonData.table);
+          if (rows.length === 0) {
+            continue;
+          }
+          
+          // Check if this sheet has art data by looking for "Era" and "Image" columns
+          const firstRow = rows[0];
+          const hasEraColumn = firstRow.some(cell => cell && cell.toLowerCase().includes('era'));
+          const hasImageColumn = firstRow.some(cell => cell && cell.toLowerCase().includes('image'));
+          
+          if (!hasEraColumn || !hasImageColumn) {
+            continue; // Not the art sheet
+          }
+          
+          console.log(`Found art sheet at gid ${gid}`);
+          
+          // Find column indices
+          let eraColumnIndex = -1;
+          let imageColumnIndex = -1;
+          
+          for (let i = 0; i < firstRow.length; i++) {
+            const cell = firstRow[i] || '';
+            if (cell.toLowerCase().includes('era')) {
+              eraColumnIndex = i;
+            }
+            if (cell.toLowerCase().includes('image')) {
+              imageColumnIndex = i;
+            }
+          }
+          
+          // Parse art data
+          for (let i = 1; i < rows.length; i++) {
+            const row = rows[i];
+            if (!row || row.length === 0) continue;
+            
+            const eraName = eraColumnIndex >= 0 ? (row[eraColumnIndex] || '').trim() : '';
+            const imageUrl = imageColumnIndex >= 0 ? (row[imageColumnIndex] || '').trim() : '';
+            
+            if (eraName && imageUrl && imageUrl.includes('http')) {
+              // Clean up the era name similar to how we do in the main parser
+              let cleanEraName = eraName;
+              if (cleanEraName.includes('\n')) {
+                cleanEraName = cleanEraName.split('\n')[0].trim();
+              }
+              cleanEraName = cleanEraName.replace(/\s*\([^)]*\)\s*$/, '').trim();
+              
+              console.log(`Found art for era "${cleanEraName}": ${imageUrl}`);
+              artMap.set(cleanEraName, imageUrl);
+            }
+          }
+          
+          break; // Found the art sheet, stop trying other gids
+          
+        } catch (error) {
+          console.log(`Gid ${gid} not accessible or not art sheet:`, error instanceof Error ? error.message : 'Unknown error');
+          continue;
+        }
+      }
+      
+    } catch (error) {
+      console.error('Error parsing album art:', error);
+    }
+    
+    return artMap;
+  }
+  // Extract document ID from Google Docs URL
+  static getDocumentId(googleDocsUrl: string): string {
+    let docId = '';
+    
+    if (googleDocsUrl.includes('/d/')) {
+      const match = googleDocsUrl.match(/\/d\/([a-zA-Z0-9-_]+)/);
+      if (match) {
+        docId = match[1];
+      }
+    } else if (googleDocsUrl.includes('id=')) {
+      const match = googleDocsUrl.match(/id=([a-zA-Z0-9-_]+)/);
+      if (match) {
+        docId = match[1];
+      }
+    }
+    
+    if (!docId) {
+      throw new Error('Invalid Google Docs URL format');
+    }
+    
+    return docId;
+  }
+
+  // Main parsing method with sheet selection using JSON API
+  static async parseGoogleDoc(googleDocsUrl: string, sheetType: 'unreleased' | 'best' | 'grails' | 'worst' = 'unreleased'): Promise<Artist> {
+    try {
+      // Use the JSON API instead of CSV
+      const jsonUrl = GoogleDocsParser.getJsonUrl(googleDocsUrl);
+      console.log(`Using JSON API URL: ${jsonUrl}`);
+      
+      // Fetch JSON data
+      const response = await axios.get(jsonUrl, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (compatible; TrackerParse/1.0)',
+        },
+        timeout: 10000,
+      });
+
+      if (!response.data) {
+        throw new Error('No data received from Google Sheets JSON API');
+      }
+
+      console.log('Received JSON response, parsing...');
+      
+      // Parse Google Sheets JSON response
+      const table = GoogleDocsParser.parseGoogleSheetsJson(response.data);
+      
+      // Convert to our internal JSON format
+      const jsonData = GoogleDocsParser.parseJsonData(table, sheetType);
+      
+      console.log(`Parsed data: ${jsonData.eras.length} eras, ${jsonData.tracks.length} tracks`);
+      
+      // Parse album art from the Art tab
+      console.log('Fetching album art...');
+      const artMap = await GoogleDocsParser.parseAlbumArt(googleDocsUrl);
+      console.log(`Found art for ${artMap.size} albums`);
+      
+      // Convert to Artist format
+      const albumMap = new Map<string, { tracks: Track[], picture?: string, description?: string, notes?: string, metadata?: any }>();
+      
+      // Process eras and tracks
+      for (const era of jsonData.eras) {
+        const tracks: Track[] = era.tracks.map((track: any, index: number) => {
+          const parsedTitle = GoogleDocsParser.parseTrackTitle(track.name);
+          
+          return {
+            id: `${era.name}-${track.name}-${index}`,
+            era: era.name,
+            title: parsedTitle,
+            rawName: track.name,
+            notes: track.notes,
+            discordLink: jsonData.metadata.discordLink || '',
+            trackLength: track.trackLength,
+            fileDate: track.fileDate,
+            leakDate: track.leakDate,
+            availableLength: track.availableLength,
+            quality: track.quality,
+            links: track.links ? track.links.map((link: string) => ({ url: link, type: 'audio' as const })) : [],
+            isSpecial: track.isSpecial,
+            isWorst: track.isWorst,
+            isGrail: track.isGrail,
+            specialType: track.specialType
+          };
+        });
+        
+        albumMap.set(era.name, {
+          tracks,
+          picture: artMap.get(era.name) || era.picture || '',
+          description: era.description,
+          notes: era.notes,
+          metadata: era.metadata
+        });
+      }
+      
+      // Apply filtering based on sheet type
+      if (sheetType !== 'unreleased') {
+        console.log(`Applying filter for sheet type: ${sheetType}`);
+        
+        const filteredAlbumMap = new Map<string, { tracks: Track[], picture?: string, description?: string, notes?: string, metadata?: any }>();
+        
+        for (const [eraName, eraData] of albumMap.entries()) {
+          const filteredTracks = eraData.tracks.filter(track => {
+            let shouldInclude = false;
+            
+            switch (sheetType) {
+              case 'best':
+              case 'grails':
+                shouldInclude = track.isSpecial;
+                break;
+              
+              case 'worst':
+                shouldInclude = track.isWorst || 
+                       track.quality.toLowerCase().includes('low quality') ||
+                       track.quality.toLowerCase().includes('demo') ||
+                       track.quality.toLowerCase().includes('128kbps') ||
+                       track.notes.toLowerCase().includes('worst') ||
+                       track.notes.toLowerCase().includes('demo') ||
+                       track.specialType === '�️';
+                break;
+                       track.notes.toLowerCase().includes('demo') ||
+                       track.specialType === '🗑️';
+                break;
+              
+              default:
+                shouldInclude = true;
+            }
+            
+            return shouldInclude;
+          });
+          
+          if (filteredTracks.length > 0) {
+            filteredAlbumMap.set(eraName, {
+              ...eraData,
+              tracks: filteredTracks
+            });
+          }
+        }
+        
+        // Replace the original albumMap with filtered one
+        albumMap.clear();
+        for (const [key, value] of filteredAlbumMap.entries()) {
+          albumMap.set(key, value);
+        }
+      }
+
+      // Convert map to albums array, filtering out empty albums unless they have important metadata
+      const albums: Album[] = Array.from(albumMap.entries())
+        .filter(([albumName, albumData]) => {
+          // Keep albums with tracks
+          if (albumData.tracks.length > 0) {
+            return true;
+          }
+          
+          // Keep albums with important notes or metadata
+          if (albumData.notes && albumData.notes.trim().length > 0) {
+            return true;
+          }
+          
+          // Keep albums with rich metadata
+          if (albumData.metadata && Object.keys(albumData.metadata).length > 0) {
+            return true;
+          }
+          
+          // Otherwise, filter out empty albums
+          console.log(`Filtering out empty album: ${albumName}`);
+          return false;
+        })
+        .map(([albumName, albumData], index) => ({
+          id: `album-${index}`,
+          name: albumName,
+          picture: albumData.picture || '',
+          description: albumData.description || `${albumData.tracks.length} track${albumData.tracks.length !== 1 ? 's' : ''}`,
+          tracks: albumData.tracks,
+          metadata: albumData.metadata || {
+            ogFiles: 0,
+            fullFiles: 0,
+            taggedFiles: 0,
+            partialFiles: 0,
+          snippetFiles: 0,
+          stemBounceFiles: 0,
+          unavailableFiles: 0
+        },
+        notes: albumData.notes || albumData.description || '',
+        image: albumData.picture || undefined
+      }));
+
+      return {
+        name: jsonData.metadata.artistName || 'Unknown Artist',
+        albums,
+        updates: undefined, // We'll extract this from other parsing if needed
+        statistics: undefined, // We'll extract this from other parsing if needed
+        lastUpdated: new Date().toISOString(),
+      };
+      
+    } catch (error) {
+      console.error('Error parsing Google Doc with JSON API:', error);
+      if (axios.isAxiosError(error)) {
+        if (error.response?.status === 403) {
+          throw new Error('Access denied. The Google Sheet may not be publicly accessible.');
+        } else if (error.response?.status === 404) {
+          throw new Error('Google Sheet not found. Please check the URL.');
+        }
+      }
+      throw new Error(`Failed to parse Google Sheet: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+}

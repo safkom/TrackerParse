@@ -1,26 +1,602 @@
 @import "tailwindcss";
+@import "../styles/modern-player.css";
 
 :root {
   --background: #ffffff;
-  --foreground: #171717;
+  --foreground: #0f172a;
+  --primary: #2563eb;
+  --primary-light: #3b82f6;
+  --accent: #7c3aed;
+  --surface: #ffffff;
+  --surface-dark: #f1f5f9;
+  --border: #e2e8f0;
+  --border-light: #f1f5f9;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+.dark {
+  --background: #0f172a;
+  --foreground: #f1f5f9;
+  --surface: #1e293b;
+  --surface-dark: #334155;
+  --border: #334155;
+  --border-light: #475569;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-geist-sans), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  line-height: 1.6;
+  min-height: 100vh;
+  /* Prevent horizontal scrolling on mobile */
+  overflow-x: hidden;
+  /* Enable momentum scrolling on iOS */
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Music Player Enhancements */
+.music-gradient {
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%);
+}
+
+.glass-effect {
+  backdrop-filter: blur(20px);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+}
+
+.dark .glass-effect {
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+}
+
+/* Album Card Styling */
+.album-card {
+  background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.06);
+  border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.dark .album-card {
+  background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%);
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+/* Enhanced contrast for light mode elements */
+.light-mode-enhanced {
+  background: rgba(255, 255, 255, 0.95);
+  border: 1px solid rgba(0, 0, 0, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+}
+
+.dark .light-mode-enhanced {
+  background: rgba(30, 41, 59, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+/* Form input enhancements */
+input[type="url"], input[type="text"], textarea {
+  background: #ffffff !important;
+  border: 2px solid #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+.dark input[type="url"], .dark input[type="text"], .dark textarea {
+  background: #1e293b !important;
+  border: 2px solid #334155 !important;
+  color: #f1f5f9 !important;
+}
+
+input[type="url"]:focus, input[type="text"]:focus, textarea:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1) !important;
+}
+
+.dark input[type="url"]:focus, .dark input[type="text"]:focus, .dark textarea:focus {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Track Hover Effects */
+.track-item {
+  transition: all 0.3s ease;
+}
+
+.track-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(59, 130, 246, 0.15);
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--primary);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--primary-light);
+}
+
+/* Smooth transitions for theme changes */
+* {
+  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-duration: 200ms;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Play button pulse animation */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+.play-button-active {
+  animation: pulse 2s infinite;
+}
+
+/* Modern input styling */
+input[type="range"] {
+  appearance: none;
+  background: transparent;
+  cursor: pointer;
+}
+
+input[type="range"]::-webkit-slider-track {
+  background: #e2e8f0;
+  height: 4px;
+  border-radius: 2px;
+}
+
+.dark input[type="range"]::-webkit-slider-track {
+  background: #475569;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  appearance: none;
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  transition: all 0.2s ease;
+}
+
+input[type="range"]::-webkit-slider-thumb:hover {
+  transform: scale(1.1);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+input[type="range"]::-moz-range-track {
+  background: #e2e8f0;
+  height: 4px;
+  border-radius: 2px;
+  border: none;
+}
+
+.dark input[type="range"]::-moz-range-track {
+  background: #475569;
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 16px;
+  width: 16px;
+  border-radius: 50%;
+  background: var(--primary);
+  cursor: pointer;
+  border: none;
+  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+}
+
+/* Loading animations */
+@keyframes shimmer {
+  0% {
+    background-position: -200px 0;
+  }
+  100% {
+    background-position: calc(200px + 100%) 0;
+  }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    #f0f0f0 25%,
+    #e0e0e0 37%,
+    #f0f0f0 63%
+  );
+  background-size: 400px 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+.dark .shimmer {
+  background: linear-gradient(
+    90deg,
+    #374151 25%,
+    #4b5563 37%,
+    #374151 63%
+  );
+  background-size: 400px 100%;
+}
+
+/* Track Grouping Styles */
+.track-group {
+  position: relative;
+  z-index: 1;
+}
+
+.track-group .absolute.top-2.right-2 {
+  z-index: 10;
+}
+
+/* Enhanced Era Styling */
+.album-card {
+  position: relative;
+  z-index: 1;
+}
+
+.album-card .bg-gradient-to-br {
+  background-image: linear-gradient(
+    to bottom right, 
+    var(--tw-gradient-from), 
+    var(--tw-gradient-to)
+  );
+}
+
+/* Version Badge Animation */
+@keyframes badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.05);
+  }
+}
+
+.version-badge:hover {
+  animation: badge-pulse 0.6s ease-in-out;
+}
+
+/* Era Image Enhancement */
+.era-image {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.era-image:hover {
+  transform: scale(1.05);
+  box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+/* Text truncation utilities */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* Mobile-first responsive design improvements */
+@media (max-width: 640px) {
+  /* Root viewport adjustments for iPhone 13 Pro and similar */
+  html {
+    font-size: 16px; /* Increased from 14px for better readability */
+  }
+  
+  body {
+    overflow-x: hidden;
+    /* Support for iOS safe areas */
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  
+  /* Enhanced navigation for mobile */
+  nav {
+    height: 60px; /* Increased height for better touch targets */
+    padding: 0 1rem;
+  }
+  
+  .nav-button {
+    padding: 0.875rem 1rem; /* Larger touch targets */
+    font-size: 1rem;
+    border-radius: 8px;
+    min-height: 44px;
+  }
+  
+  /* Album cards - better spacing and sizing */
+  .album-card {
+    margin: 0.5rem;
+    padding: 1rem;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Track items - improved touch targets and spacing */
+  .track-item {
+    padding: 1rem 0.75rem;
+    font-size: 1rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+    min-height: 60px; /* Ensure adequate touch target */
+  }
+  
+  .track-list-item {
+    padding: 1rem 0.75rem;
+    margin-bottom: 0.5rem;
+    border-radius: 8px;
+  }
+  
+  /* Modal and popup improvements */
+  .modal-content {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+    border-radius: 16px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  }
+  
+  /* Metadata modal specific */
+  .metadata-modal {
+    padding: 1rem;
+    margin: 1rem;
+    border-radius: 16px;
+  }
+  
+  /* Enhanced buttons and interactive elements */
+  button, a[role="button"] {
+    min-height: 44px;
+    min-width: 44px;
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 500;
+  }
+  
+  /* Form elements optimization */
+  input, select, textarea {
+    font-size: 16px; /* Prevent zoom on iOS */
+    padding: 0.875rem 1rem;
+    border-radius: 8px;
+    min-height: 44px;
+    border-width: 2px;
+  }
+  
+  /* Range inputs for music player */
+  input[type="range"] {
+    min-height: 44px;
+    padding: 1rem 0;
+  }
+  
+  /* Better touch scrolling */
+  * {
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* Prevent text overflow issues */
+  .track-item h3 {
+    word-break: break-word;
+    hyphens: auto;
+  }
+  
+  /* Ensure buttons maintain proper size */
+  button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+  
+  /* Optimize modal positioning on mobile */
+  .modal-content {
+    margin: 1rem;
+    max-height: calc(100vh - 2rem);
+  }
+  
+  /* Prevent layout shift with flexbox */
+  .flex-wrap {
+    min-height: 0;
+  }
+  
+  /* Better line clamping */
+  .line-clamp-1 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 1;
+    line-clamp: 1;
+    -webkit-box-orient: vertical;
+  }
+  
+  .line-clamp-2 {
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+  }
+  
+  /* Music player mobile optimizations */
+  .music-player {
+    padding: 1rem;
+    border-radius: 16px 16px 0 0;
+    will-change: transform;
+  }
+  
+  /* Container improvements */
+  .container {
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+  
+  /* Prevent layout thrashing */
+  .track-item {
+    contain: layout style paint;
+    will-change: transform;
+  }
+  
+  /* Optimize transitions for performance */
+  .transition-all {
+    transition-duration: 200ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  /* Prevent modal scroll issues */
+  .modal-backdrop {
+    overflow: hidden;
+    overscroll-behavior: contain;
+  }
+  
+  /* Content area spacing */
+  .content-area {
+    padding: 1rem;
+    margin-top: 4rem; /* Account for navigation */
+    margin-bottom: 7rem; /* Account for music player */
+  }
+  
+  /* Typography improvements for mobile */
+  h1 {
+    font-size: 2rem;
+    line-height: 1.2;
+    margin-bottom: 1rem;
+  }
+  
+  h2 {
+    font-size: 1.5rem;
+    line-height: 1.3;
+    margin-bottom: 0.75rem;
+  }
+  
+  h3 {
+    font-size: 1.25rem;
+    line-height: 1.4;
+    margin-bottom: 0.5rem;
+  }
+  
+  /* Improved text contrast and spacing */
+  p {
+    line-height: 1.6;
+    margin-bottom: 1rem;
+  }
+  
+  /* Better card layouts */
+  .card {
+    border-radius: 12px;
+    padding: 1rem;
+    margin: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  }
+}
+
+/* Tablet optimizations */
+@media (min-width: 641px) and (max-width: 1024px) {
+  .container {
+    padding-left: 1.5rem;
+    padding-right: 1.5rem;
+  }
+  
+  .content-area {
+    padding: 1.5rem;
+  }
+  
+  .album-card {
+    margin: 0.75rem;
+    padding: 1.25rem;
+  }
+  
+  .track-item {
+    padding: 0.875rem 1rem;
+  }
+}
+
+/* Desktop enhancements */
+@media (min-width: 1025px) {
+  /* Enhanced hover states for desktop */
+  .track-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+  }
+  
+  .dark .track-item:hover {
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
+  }
+  
+  /* Improve card layouts on desktop */
+  .album-card {
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    margin: 1rem;
+    padding: 1.5rem;
+  }
+  
+  .album-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.12);
+  }
+  
+  .dark .album-card:hover {
+    box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5);
+  }
+  
+  /* Better button interactions */
+  button:hover, a[role="button"]:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    transition: all 0.2s ease;
+  }
+  
+  /* Enhanced navigation */
+  nav {
+    backdrop-filter: blur(20px);
+  }
+  
+  /* Better content spacing */
+  .content-area {
+    max-width: 1200px;
+    margin: 0 auto;
+    padding: 2rem;
+  }
+}
+
+/* Range input improvements for all devices */
+input[type="range"] {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border-radius: 4px;
+  outline: none;
+  background: transparent;
+}
+
+input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+input[type="range"]::-moz-range-thumb {
+  height: 20px;
+  width: 20px;
+  border-radius: 50%;
+  background: #3b82f6;
+  cursor: pointer;
+  border: 2px solid #ffffff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }

@@ -1,242 +1,154 @@
-# 🎵 TrackerParse
+# TrackerParse
 
-> **A modern, feature-rich web application for parsing and displaying music tracker spreadsheets**
+A web application similar to trackerhub.cx that parses Google Docs spreadsheets and displays artist information with albums and tracks. Features include caching for improved performance and a responsive React interface.
 
-[![Next.js](https://img.shields.io/badge/Next.js-15.4.5-black)](https://nextjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5-blue)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-38bdf8)](https://tailwindcss.com/)
-[![License](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+## Features
 
-## ✨ Features
+- **Google Docs Integration**: Parse publicly accessible Google Sheets containing artist/track data
+- **Smart Caching**: JSON-based caching system to avoid re-parsing the same spreadsheets
+- **Artist Display**: Clean, organized view of artists, albums, and tracks
+- **Track Details**: Comprehensive track information including era, links, dates, quality, and more
+- **Responsive Design**: Mobile-friendly interface built with Tailwind CSS
+- **TypeScript**: Full type safety throughout the application
 
-### 🎧 **Music Tracker Parsing**
-- **Google Docs Integration**: Parse spreadsheets directly from Google Docs links
-- **Smart Data Extraction**: Automatically extracts artist, album, and track information
-- **Multiple Sheet Support**: Handle different sheet types (unreleased, best tracks, etc.)
-- **Intelligent Caching**: JSON-based caching system for faster subsequent loads
+## Expected Data Structure
 
-### 🎼 **Track Management**
-- **Comprehensive Track Data**: Era, Name, Links, Notes, Discord links, Track Length, File Date, Leak Date, Available Length, Quality
-- **Special Track Markers**: Support for 🏆, ✨, ⭐ special track indicators
-- **Advanced Search**: Search across track titles, alternate names, features, collaborators, and notes
-- **Track Grouping**: Intelligent grouping of track versions and variants
+Your Google Sheets should contain the following columns:
 
-### 🎵 **Music Playback**
-- **Multi-Platform Support**: 
-  - 🎧 **Pillowcase API** (pillows.su, pillowcase.su, pillowcases.su, pillowcases.top)
-  - 🌧️ **Music.froste.lol** (with automatic `/download` URL transformation)
-  - 📺 **YouTube** (with audio extraction)
-  - 🎶 **SoundCloud**
-  - 🔗 **Direct Audio Files** (MP3, WAV, M4A, AAC, OGG, FLAC)
-- **Seamless Integration**: Click-to-play functionality throughout the interface
-- **Background Playback**: Persistent music player with controls
+- **Era**: Album or era name
+- **Name**: Track name
+- **Link to google doc**: Link to track document
+- **Notes**: Additional track notes
+- **Discord link**: Discord discussion link
+- **Track Length**: Duration of the track
+- **File Date**: Date the file was created
+- **Leak Date**: Date the track was leaked
+- **Available Length**: How much of the track is available
+- **Quality**: Audio quality information
+- **Link(s)**: Additional links (comma-separated)
 
-### 🌙 **User Experience**
-- **Dark/Light Mode**: Automatic theme detection with manual toggle
-- **Responsive Design**: Mobile-friendly interface with Tailwind CSS
-- **Keyboard Shortcuts**: Quick search with Ctrl/Cmd+K
-- **Performance Optimized**: Debounced search, virtualized lists for large datasets
-
-### 📊 **Data Export**
-- **JSON Export**: Complete data structure with metadata for programmatic use
-- **CSV Export**: Flattened track data compatible with Excel/Google Sheets
-- **Flexible Options**: Choose export format, include/exclude metadata
-- **Smart Filename Generation**: Automatic naming with artist, document ID, and date
-
-### 🔍 **Advanced Features**
-- **Metadata Integration**: Rich track metadata from Pillowcase API
-- **Statistics Pages**: Comprehensive analytics and track statistics
-- **Update Tracking**: Monitor changes and additions to trackers
-- **Diagnostic Tools**: Built-in debugging and analysis tools
-
-## 🚀 Quick Start
+## Getting Started
 
 ### Prerequisites
-- **Node.js** 18+ 
-- **npm** or **yarn**
+
+- Node.js 18+ 
+- npm or yarn
 
 ### Installation
 
+1. Clone the repository:
 ```bash
-# Clone the repository
-git clone https://github.com/safkom/TrackerParse.git
+git clone <your-repo-url>
 cd TrackerParse
+```
 
-# Install dependencies
+2. Install dependencies:
+```bash
 npm install
+```
 
-# Start development server
+3. Run the development server:
+```bash
 npm run dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) in your browser.
+4. Open [http://localhost:3000](http://localhost:3000) in your browser
 
 ### Usage
 
-1. **Enter a Google Docs Spreadsheet ID** or paste a full Google Docs URL
-2. **Browse the parsed data** - view artists, eras, and tracks
-3. **Search and filter** tracks using the search bar
-4. **Play music** directly from supported platforms
-5. **Export data** in JSON or CSV format
-6. **Toggle themes** using the light/dark mode button
+1. Enter a Google Docs spreadsheet URL (must be publicly accessible)
+2. Click "Parse Spreadsheet" to analyze the data
+3. View organized artist, album, and track information
+4. Use the "Force refresh" option to bypass cache when needed
 
-## 🎯 API Endpoints
+## Tech Stack
 
-### Core APIs
-- `GET /api/parse?docId={id}` - Parse Google Docs spreadsheet
-- `GET /api/export?docId={id}&format={json|csv}` - Export parsed data
-- `GET /api/search?query={term}` - Search across cached data
+- **Next.js 15**: React framework with App Router
+- **TypeScript**: Type safety and better development experience
+- **Tailwind CSS**: Utility-first CSS framework
+- **Axios**: HTTP client for API requests
+- **PapaParse**: CSV parsing library
+- **Node.js**: Server-side runtime
 
-### Utility APIs
-- `GET /api/youtube-audio?url={url}` - Extract audio from YouTube
-- `GET /api/proxy-metadata?url={url}` - Proxy metadata requests
-- `GET /api/debug` - Debug information and diagnostics
+## Project Structure
 
-## 🛠️ Technology Stack
-
-- **⚡ Next.js 15** - React framework with App Router
-- **🔷 TypeScript** - Type-safe development
-- **🎨 Tailwind CSS** - Utility-first CSS framework
-- **⚛️ React 18** - Modern React with hooks and contexts
-- **🌐 Google Docs API** - Spreadsheet parsing
-- **🎵 Multi-Platform Audio** - Support for various music platforms
-
-## 📝 Data Structure
-
-### Track Object
-```typescript
-interface Track {
-  id: string;
-  era: string;
-  title: TrackTitle;
-  rawName: string;
-  notes: string;
-  discordLink?: string;
-  trackLength: string;
-  fileDate: string;
-  leakDate: string;
-  availableLength: string;
-  quality: string;
-  links: TrackLink[];
-  isSpecial: boolean;
-  specialType?: '🏆' | '✨' | '⭐';
-}
+```
+src/
+├── app/
+│   ├── api/parse/route.ts    # API endpoint for parsing Google Docs
+│   └── page.tsx              # Main application page
+├── components/
+│   ├── Artist.tsx            # Artist display component
+│   ├── Album.tsx             # Album display component
+│   ├── Track.tsx             # Track display component
+│   └── GoogleDocsForm.tsx    # URL input form
+├── types/
+│   └── index.ts              # TypeScript type definitions
+└── utils/
+    ├── googleDocsParser.ts   # Google Docs parsing logic
+    └── cacheManager.ts       # Caching system
 ```
 
-### Export Formats
+## API Endpoints
 
-**JSON Export** - Complete data structure:
+### POST /api/parse
+Parse a Google Docs spreadsheet URL
+
+**Request Body:**
 ```json
 {
-  "trackerName": "Artist Name",
-  "docId": "spreadsheet_id",
-  "sourceUrl": "https://docs.google.com/spreadsheets/d/...",
-  "artist": { /* Complete artist data */ },
-  "metadata": { /* Export statistics */ }
+  "googleDocsUrl": "https://docs.google.com/spreadsheets/d/...",
+  "forceRefresh": false
 }
 ```
 
-**CSV Export** - Flattened track data with columns:
-- Basic: `trackerName`, `era`, `trackName`, `quality`, `trackLength`
-- Metadata: `features`, `collaborators`, `producers`, `references`
-- Links: `links` (JSON-encoded), `discordLink`
-- Dates: `fileDate`, `leakDate`, `availableLength`
-
-## 🔧 Development
-
-### Available Scripts
-
-```bash
-# Development
-npm run dev          # Start development server
-npm run build        # Build for production
-npm run start        # Start production server
-npm run lint         # Run ESLint
+**Response:**
+```json
+{
+  "artist": {
+    "id": "artist-123",
+    "name": "Artist Name",
+    "albums": [...],
+    "lastUpdated": "2025-01-01T00:00:00.000Z"
+  },
+  "error": "Optional error message"
+}
 ```
 
-### Environment Configuration
+### GET /api/parse?docId=...
+Retrieve cached data for a specific document ID
 
-Create `.env.local` for local development:
-```env
-# Optional: Custom cache directory
-CACHE_DIR=./cache
+## Caching
 
-# Optional: Debug mode
-DEBUG=true
-```
+The application uses a JSON-based caching system that:
+- Stores parsed spreadsheet data locally
+- Reduces API calls to Google Docs
+- Provides fallback data when parsing fails
+- Can be bypassed with the "Force refresh" option
 
-## 🎨 Customization
+Cache files are stored in the `cache/` directory.
 
-### Theme Configuration
-The application supports light/dark mode with automatic system preference detection. Customize themes in `src/contexts/ThemeContext.tsx`.
+## Contributing
 
-### Adding Music Platforms
-To add support for new music platforms, update:
-1. `src/components/MusicPlayer.tsx` - Add platform detection and URL handling
-2. `src/components/Track.tsx` - Update playability logic
-3. `src/components/CollapsedTrack.tsx` - Update playability logic
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
-### Parser Extensions
-Extend the Google Docs parser in `src/utils/googleDocsParser.ts` to support additional spreadsheet formats or data structures.
+## License
 
-## 📊 Features in Detail
+This project is open source and available under the [MIT License](LICENSE).
 
-### Smart Search
-- **Multi-field search**: Search across track titles, alternate names, features, collaborators, producers, and notes
-- **Era filtering**: Search within specific eras or across all content
-- **Real-time results**: Debounced search with instant feedback
-- **Keyboard shortcuts**: Quick access with Ctrl/Cmd+K
+## Troubleshooting
 
-### Music Platform Integration
-- **Pillowcase**: Full API integration with metadata support
-- **Music.froste.lol**: Automatic URL transformation for direct downloads
-- **YouTube**: Audio extraction via custom API
-- **SoundCloud**: Direct embedding support
-- **Direct files**: Support for common audio formats
+### Common Issues
 
-### Export System
-- **Format flexibility**: Choose between JSON (complete) or CSV (spreadsheet-compatible)
-- **Metadata options**: Include/exclude export metadata and timestamps
-- **Smart naming**: Automatic filename generation with context
-- **Browser downloads**: Client-side download generation
+1. **"Access denied" error**: Ensure the Google Docs spreadsheet is publicly accessible
+2. **"Invalid URL format"**: Make sure you're using a valid Google Sheets URL
+3. **No data found**: Check that your spreadsheet has the expected column headers
+4. **Parsing errors**: Verify your spreadsheet data format matches the expected structure
 
-## 🤝 Contributing
+### Support
 
-1. **Fork the repository**
-2. **Create a feature branch**: `git checkout -b feature/amazing-feature`
-3. **Commit changes**: `git commit -m 'Add amazing feature'`
-4. **Push to branch**: `git push origin feature/amazing-feature`
-5. **Open a Pull Request**
-
-### Development Guidelines
-- Follow TypeScript best practices
-- Use Tailwind CSS for styling
-- Write comprehensive type definitions
-- Add JSDoc comments for complex functions
-- Test across different spreadsheet formats
-
-## 📄 License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🙏 Acknowledgments
-
-- **Next.js Team** - Amazing React framework
-- **Tailwind CSS** - Incredible utility-first CSS
-- **Music Platform APIs** - Enabling seamless audio integration
-- **Open Source Community** - Inspiration and tools
-
-## 📞 Support
-
-- **Issues**: [GitHub Issues](https://github.com/safkom/TrackerParse/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/safkom/TrackerParse/discussions)
-
----
-
-<div align="center">
-
-**Built with ❤️ for the music tracking community**
-
-[🌟 Star this repository](https://github.com/safkom/TrackerParse) if you find it useful!
-
-</div>
+If you encounter any issues, please check the browser console for detailed error messages and ensure your Google Docs URL is correct and publicly accessible.

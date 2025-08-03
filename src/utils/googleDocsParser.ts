@@ -183,8 +183,8 @@ export class GoogleDocsParser {
   }
 
   // Convert JSON table data to our internal format
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars  
-  static parseJsonData(table: GoogleSheetsTable, sheetType: 'unreleased' | 'best' | 'recent' = 'unreleased'): ParsedJsonData {
+  
+  static parseJsonData(table: GoogleSheetsTable, _sheetType: 'unreleased' | 'best' | 'recent' = 'unreleased'): ParsedJsonData {
     const rows = this.convertJsonToRows(table);
     
     // Store era information from headers (will be populated during header processing)

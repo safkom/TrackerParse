@@ -36,36 +36,22 @@ export async function GET(request: NextRequest) {
           return false;
         }
 
-        // Search in multiple fields
         const titleMatch = track.title?.main?.toLowerCase().includes(searchQuery) || false;
-        const rawNameMatch = track.rawName?.toLowerCase().includes(searchQuery) || false;
-        const alternateNamesMatch = track.title?.alternateNames?.some((name: string) => 
+        const alternateNamesMatch = track.title?.alternateNames?.some((name: string) =>
           name?.toLowerCase().includes(searchQuery)
         ) || false;
-        const featuresMatch = track.title?.features?.some((feature: string) => 
-          feature?.toLowerCase().includes(searchQuery)
-        ) || false;
-        const collaboratorsMatch = track.title?.collaborators?.some((collab: string) => 
-          collab?.toLowerCase().includes(searchQuery)
-        ) || false;
-        const producersMatch = track.title?.producers?.some((producer: string) => 
-          producer?.toLowerCase().includes(searchQuery)
-        ) || false;
-        const notesMatch = track.notes?.toLowerCase().includes(searchQuery) || false;
-        const eraMatch = track.era?.toLowerCase().includes(searchQuery) || false;
-        
-        return titleMatch || rawNameMatch || alternateNamesMatch || featuresMatch || 
-               collaboratorsMatch || producersMatch || notesMatch || eraMatch;
+
+        return titleMatch || alternateNamesMatch;
       });
 
-      // Return album only if it has matching tracks or if the album name matches
-      if (filteredTracks.length > 0 || album.name.toLowerCase().includes(searchQuery)) {
+      // Return album only if it has matching tracks
+      if (filteredTracks.length > 0) {
         return {
           ...album,
           tracks: filteredTracks
         };
       }
-      
+
       return null;
     }).filter((album: Album | null) => album !== null);
 

@@ -251,7 +251,7 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetTyp
 
   const totalFilteredTracks = filteredAlbums.reduce((total, album) => total + album.tracks.length, 0);
   return (
-    <div className="max-w-6xl mx-auto p-3 sm:p-6">
+    <div className="w-full px-2 sm:px-6 py-3 sm:py-6">
       {/* Artist Header - Reduced spacing */}
       <div className="text-center mb-4 sm:mb-6">
         <h1 className="text-3xl sm:text-4xl font-bold text-gray-800 dark:text-white mb-2">

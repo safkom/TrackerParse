@@ -8,9 +8,10 @@ interface MusicPlayerProps {
   track: Track | null;
   isVisible: boolean;
   onClose: () => void;
+  onInfo?: (track: Track) => void;
 }
 
-export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerProps) {
+export default function MusicPlayer({ track, isVisible, onClose, onInfo }: MusicPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [duration, setDuration] = useState(0);
@@ -197,7 +198,7 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-4">
         <div className="flex flex-col space-y-2 sm:space-y-3">
           {/* Track Info and Controls Row */}
-          <div className="grid grid-cols-3 items-center gap-2">
+          <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
             {/* Track Info - Left */}
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
               <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
@@ -213,7 +214,22 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
                   {track.era}
                 </p>
               </div>
-              {/* Metadata Button - Mobile */}
+              {onInfo && (
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onInfo(track);
+                  }}
+                  className="p-1.5 sm:p-2.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 flex-shrink-0"
+                  title="Track info"
+                  aria-label="View track info"
+                >
+                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 100-12 6 6 0 000 12z" />
+                  </svg>
+                </button>
+              )}
               {isPillowcase && playable?.id && (
                 <button
                   onClick={(e) => {
@@ -233,7 +249,7 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
             </div>
 
             {/* Player Controls - Center */}
-            <div className="flex items-center justify-center space-x-2 sm:space-x-4">
+            <div className="flex items-center justify-center space-x-2 sm:space-x-4 justify-self-center">
               {(audioUrl && !isSoundCloudLink && !isYouTubeLink) || (youtubeAudioUrl) ? (
                 <button
                   onClick={togglePlayPause}
@@ -301,7 +317,7 @@ export default function MusicPlayer({ track, isVisible, onClose }: MusicPlayerPr
             </div>
 
             {/* Volume Control - Right (Hidden on mobile) */}
-            <div className="flex justify-end">
+            <div className="flex justify-end justify-self-end">
               {((audioUrl && !isSoundCloudLink && !isYouTubeLink) || youtubeAudioUrl) && (
                 <div className="hidden sm:flex items-center space-x-2 w-32">
                   <svg className="w-4 h-4 text-gray-600 dark:text-gray-300 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">

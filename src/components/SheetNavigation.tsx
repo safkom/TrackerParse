@@ -46,11 +46,11 @@ export default function SheetNavigation({ currentSheet, onSheetChange, isLoading
               disabled={isLoading}
               className={`
                 flex items-center space-x-2 px-4 py-2 rounded-lg font-medium text-sm transition-all duration-200 whitespace-nowrap
-                ${currentSheet === sheet.id 
-                  ? `${sheet.color} text-white shadow-md` 
+                ${currentSheet === sheet.id
+                  ? `${sheet.color} text-white shadow-md`
                   : 'bg-gray-100 hover:bg-gray-200 text-gray-700 dark:bg-gray-700 dark:hover:bg-gray-600 dark:text-gray-300'
                 }
-                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'}
+                ${isLoading ? 'opacity-50 cursor-not-allowed' : 'hover:scale-105'} flex-shrink-0
               `}
               title={sheet.description}
             >

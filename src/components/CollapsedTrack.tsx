@@ -403,7 +403,7 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
 
       {/* Inline Versions View */}
       {showVersionsView && tracks.length > 1 && (
-        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-750">
+        <div className="border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800">
           <div className="p-3">
             <div className="space-y-2">
               {tracks.map((track, index) => {

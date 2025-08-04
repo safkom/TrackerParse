@@ -5,6 +5,7 @@ import { useParams, useSearchParams, useRouter } from "next/navigation";
 import { ParsedSpreadsheetData, Track } from "@/types";
 import Artist from "@/components/Artist";
 import MusicPlayer from "@/components/MusicPlayer";
+import TrackDetailPage from "@/components/TrackDetailPage";
 import SheetNavigation, { SheetType } from "@/components/SheetNavigation";
 
 export default function SpreadsheetPage() {
@@ -17,6 +18,7 @@ export default function SpreadsheetPage() {
   const [error, setError] = useState<string | null>(null);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
   const [isMusicPlayerVisible, setIsMusicPlayerVisible] = useState(false);
+  const [infoTrack, setInfoTrack] = useState<Track | null>(null);
   const [currentSheet, setCurrentSheet] = useState<SheetType>('unreleased');
   const [sheetLoading, setSheetLoading] = useState(false);
 
@@ -95,6 +97,13 @@ export default function SpreadsheetPage() {
     setCurrentTrack(null);
   };
 
+  const handleTrackInfo = (track: Track) => {
+    setInfoTrack(track);
+  };
+  const handleCloseInfo = () => {
+    setInfoTrack(null);
+  };
+
   if (loading || sheetLoading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
@@ -141,8 +150,8 @@ export default function SpreadsheetPage() {
         onSheetChange={handleSheetChange}
         isLoading={sheetLoading}
       />
-      <Artist 
-        artist={data.artist} 
+      <Artist
+        artist={data.artist}
         onPlayTrack={handlePlayTrack}
         docId={spreadsheetId}
         sourceUrl={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
@@ -152,7 +161,15 @@ export default function SpreadsheetPage() {
         track={currentTrack}
         isVisible={isMusicPlayerVisible}
         onClose={handleCloseMusicPlayer}
+        onInfo={handleTrackInfo}
       />
+      {infoTrack && (
+        <TrackDetailPage
+          track={infoTrack}
+          onClose={handleCloseInfo}
+          onPlay={handlePlayTrack}
+        />
+      )}
     </div>
   );
 }

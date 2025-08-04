@@ -12,7 +12,17 @@ interface StatsDisplayProps {
   onQualityFilter?: (qualities: string[]) => void;
 }
 
-export default function StatsDisplay({ eraName, metadata, isExpanded, onToggle, selectedQualities = [], onQualityFilter }: StatsDisplayProps) {
+export default function StatsDisplay({
+  eraName: _eraName,
+  metadata,
+  isExpanded,
+  onToggle,
+  selectedQualities: _selectedQualities = [],
+  onQualityFilter: _onQualityFilter,
+}: StatsDisplayProps) {
+  void _eraName;
+  void _selectedQualities;
+  void _onQualityFilter;
   const statsItems = [
     { label: 'OG Files', value: metadata.ogFiles, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900', icon: '🟢', key: 'og' },
     { label: 'Full Files', value: metadata.fullFiles, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900', icon: '🔵', key: 'full' },

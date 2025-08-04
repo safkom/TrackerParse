@@ -2,7 +2,6 @@
 
 import React, { useState, useRef, useEffect } from 'react';
 import { Track } from '@/types';
-import MetadataModal from './MetadataModal';
 
 interface MusicPlayerProps {
   track: Track | null;
@@ -18,7 +17,6 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
   const [volume, setVolume] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
 
 
@@ -66,7 +64,6 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
   const audioUrl = playable && (playable.type === 'audio' || playable.type === 'pillowcase' || playable.type === 'froste') ? playable.url : null;
   const isSoundCloudLink = playable?.type === 'soundcloud';
   const isYouTubeLink = playable?.type === 'youtube';
-  const isPillowcase = playable?.type === 'pillowcase';
 
   // For YouTube: convert to audio stream via API
   const [youtubeAudioUrl, setYoutubeAudioUrl] = useState<string | null>(null);
@@ -114,6 +111,7 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
         // Auto-play when track loads
         audio.play().catch(() => {
           setError('Failed to auto-play audio');
+          setTimeout(() => setError(null), 3000);
         });
       };
       const handleError = () => {
@@ -146,8 +144,10 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
       // Auto-play
       audioRef.current.play().then(() => {
         setIsPlaying(true);
+        setError(null);
       }).catch(() => {
         setError('Failed to auto-play audio');
+        setTimeout(() => setError(null), 3000);
       });
     }
   }, [track, audioUrl]);
@@ -160,11 +160,13 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
 
   const togglePlayPause = () => {
     if (audioRef.current) {
+      setError(null);
       if (isPlaying) {
         audioRef.current.pause();
       } else {
         audioRef.current.play().catch(() => {
           setError('Failed to play audio');
+          setTimeout(() => setError(null), 3000);
         });
       }
       setIsPlaying(!isPlaying);
@@ -227,22 +229,6 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
                 >
                   <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M12 18a6 6 0 100-12 6 6 0 000 12z" />
-                  </svg>
-                </button>
-              )}
-              {isPillowcase && playable?.id && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsMetadataModalOpen(true);
-                  }}
-                  className="p-1.5 sm:p-2.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95 flex-shrink-0"
-                  title="View metadata"
-                  aria-label="View track metadata"
-                >
-                  <svg className="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                 </button>
               )}
@@ -387,7 +373,10 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
           <audio
             ref={audioRef}
             src={audioUrl}
-            onPlay={() => setIsPlaying(true)}
+            onPlay={() => {
+              setIsPlaying(true);
+              setError(null);
+            }}
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
           />
@@ -396,22 +385,15 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
           <audio
             ref={audioRef}
             src={youtubeAudioUrl}
-            onPlay={() => setIsPlaying(true)}
+            onPlay={() => {
+              setIsPlaying(true);
+              setError(null);
+            }}
             onPause={() => setIsPlaying(false)}
             onEnded={() => setIsPlaying(false)}
           />
         )}
       </div>
-
-      {/* Metadata Modal */}
-      {isPillowcase && playable?.id && (
-        <MetadataModal
-          isOpen={isMetadataModalOpen}
-          onClose={() => setIsMetadataModalOpen(false)}
-          metadataUrl={`https://api.pillows.su/api/metadata/${playable.id}.txt`}
-          trackName={track?.title?.main || track?.rawName || 'Unknown Track'}
-        />
-      )}
     </div>
   );
 }

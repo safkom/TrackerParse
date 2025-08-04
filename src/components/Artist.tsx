@@ -10,12 +10,13 @@ import { SheetType } from './SheetNavigation';
 interface ArtistProps {
   artist: ArtistType;
   onPlayTrack?: (track: Track) => void;
+  onTrackInfo?: (track: Track) => void;
   docId?: string;
   sourceUrl?: string;
   sheetType?: SheetType;
 }
 
-export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetType }: ArtistProps) {
+export default function Artist({ artist, onPlayTrack, onTrackInfo, docId, sourceUrl, sheetType }: ArtistProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -32,10 +33,8 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetTyp
 
   // Handle track info/details
   const handleTrackInfo = useCallback((track: Track) => {
-    // This would typically open a track details modal
-    // For now, we'll just log the track info
-    console.log('Track info:', track);
-  }, []);
+    onTrackInfo?.(track);
+  }, [onTrackInfo]);
 
     // Debounce search query to improve performance
   useEffect(() => {
@@ -100,48 +99,23 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetTyp
 
         // Search in track title main name
         const titleMatch = track.title?.main?.toLowerCase().includes(query) || false;
-        
-        // Search in raw name
-        const rawNameMatch = track.rawName?.toLowerCase().includes(query) || false;
-        
+
         // Search in alternate names
-        const alternateNamesMatch = track.title?.alternateNames?.some(name => 
+        const alternateNamesMatch = track.title?.alternateNames?.some(name =>
           name?.toLowerCase().includes(query)
         ) || false;
-        
-        // Search in features
-        const featuresMatch = track.title?.features?.some(feature => 
-          feature?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in collaborators
-        const collaboratorsMatch = track.title?.collaborators?.some(collab => 
-          collab?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in producers
-        const producersMatch = track.title?.producers?.some(producer => 
-          producer?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in notes
-        const notesMatch = track.notes?.toLowerCase().includes(query) || false;
-        
-        // Search in era
-        const eraMatch = track.era?.toLowerCase().includes(query) || false;
-        
-        return titleMatch || rawNameMatch || alternateNamesMatch || featuresMatch || 
-               collaboratorsMatch || producersMatch || notesMatch || eraMatch;
+
+        return titleMatch || alternateNamesMatch;
       });
 
-      // Return album only if it has matching tracks or if the album name matches
-      if (filteredTracks.length > 0 || album.name.toLowerCase().includes(query)) {
+      // Return album only if it has matching tracks
+      if (filteredTracks.length > 0) {
         return {
           ...album,
           tracks: filteredTracks
         };
       }
-      
+
       return null;
     }).filter(album => album !== null);
   }, [artist.albums, debouncedSearchQuery, sheetType]);
@@ -164,38 +138,13 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetTyp
 
         // Search in track title main name
         const titleMatch = track.title?.main?.toLowerCase().includes(query) || false;
-        
-        // Search in raw name
-        const rawNameMatch = track.rawName?.toLowerCase().includes(query) || false;
-        
+
         // Search in alternate names
-        const alternateNamesMatch = track.title?.alternateNames?.some(name => 
+        const alternateNamesMatch = track.title?.alternateNames?.some(name =>
           name?.toLowerCase().includes(query)
         ) || false;
-        
-        // Search in features
-        const featuresMatch = track.title?.features?.some(feature => 
-          feature?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in collaborators
-        const collaboratorsMatch = track.title?.collaborators?.some(collab => 
-          collab?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in producers
-        const producersMatch = track.title?.producers?.some(producer => 
-          producer?.toLowerCase().includes(query)
-        ) || false;
-        
-        // Search in notes
-        const notesMatch = track.notes?.toLowerCase().includes(query) || false;
-        
-        // Search in era
-        const eraMatch = track.era?.toLowerCase().includes(query) || false;
-        
-        if (titleMatch || rawNameMatch || alternateNamesMatch || featuresMatch || 
-            collaboratorsMatch || producersMatch || notesMatch || eraMatch) {
+
+        if (titleMatch || alternateNamesMatch) {
           allTracks.push({
             ...track,
             albumName: album.name
@@ -305,7 +254,7 @@ export default function Artist({ artist, onPlayTrack, docId, sourceUrl, sheetTyp
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Search for tracks by title, alternate names, or notes... (Ctrl+K)"
+            placeholder="Search for tracks by title or alternate names... (Ctrl+K)"
             className="block w-full pl-10 pr-12 py-2.5 sm:py-3 border border-gray-300 dark:border-gray-600 rounded-xl leading-5 bg-white dark:bg-gray-800 text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 dark:focus:ring-blue-400 dark:focus:border-blue-400 shadow-sm transition-all duration-200"
           />
           {searchQuery && (

@@ -153,6 +153,7 @@ export default function SpreadsheetPage() {
       <Artist
         artist={data.artist}
         onPlayTrack={handlePlayTrack}
+        onTrackInfo={handleTrackInfo}
         docId={spreadsheetId}
         sourceUrl={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
         sheetType={currentSheet}

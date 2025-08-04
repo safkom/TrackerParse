@@ -184,7 +184,7 @@ export class GoogleDocsParser {
 
   // Convert JSON table data to our internal format
   
-  static parseJsonData(table: GoogleSheetsTable, _sheetType: 'unreleased' | 'best' | 'recent' = 'unreleased'): ParsedJsonData {
+  static parseJsonData(table: GoogleSheetsTable): ParsedJsonData {
     const rows = this.convertJsonToRows(table);
     
     // Store era information from headers (will be populated during header processing)
@@ -1090,7 +1090,7 @@ export class GoogleDocsParser {
               date.getFullYear() <= new Date().getFullYear() + 5) {
             return date;
           }
-        } catch (e) {
+        } catch {
           // Continue to next format
           continue;
         }
@@ -1677,7 +1677,7 @@ export class GoogleDocsParser {
       }
       
       // Convert to our internal JSON format
-      const jsonData = GoogleDocsParser.parseJsonData(table, sheetType);
+      const jsonData = GoogleDocsParser.parseJsonData(table);
       
       console.log(`Parsed data: ${jsonData.eras.length} eras, ${jsonData.tracks.length} tracks`);
       
@@ -1886,7 +1886,6 @@ export class GoogleDocsParser {
         // Calculate stats from the filtered tracks only
         const allFilteredTracks = albums.flatMap(album => album.tracks);
         
-        const specialTracksCount = allFilteredTracks.filter(track => track.isSpecial).length;
         const bestOfCount = allFilteredTracks.filter(track => track.specialType === '⭐').length;
         const specialCount = allFilteredTracks.filter(track => track.specialType === '✨').length;
         const wantedCount = allFilteredTracks.filter(track => track.specialType === '🏆').length;

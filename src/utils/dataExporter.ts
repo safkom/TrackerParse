@@ -70,7 +70,8 @@ export class DataExporter {
 
     if (options.includeMetadata === false) {
       // Remove metadata if not wanted
-      const { metadata: _metadata, ...exportDataWithoutMetadata } = exportData;
+      const { metadata, ...exportDataWithoutMetadata } = exportData;
+      void metadata;
       return JSON.stringify(exportDataWithoutMetadata, null, 2);
     }
 
@@ -81,7 +82,7 @@ export class DataExporter {
   static exportToCSV(
     artist: Artist,
     docId: string,
-    _options: ExportOptions = { format: 'csv', flattenTracks: true }
+    options: ExportOptions = { format: 'csv', flattenTracks: true }
   ): string {
     const tracks: CSVTrackRow[] = [];
 
@@ -114,7 +115,7 @@ export class DataExporter {
     });
 
     // Convert to CSV string
-    const headers = Object.keys(tracks[0] || {});
+    const headers = options.selectedFields || Object.keys(tracks[0] || {});
     const csvContent = [
       headers.join(','), // Header row
       ...tracks.map(track => 

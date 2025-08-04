@@ -56,11 +56,6 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
   const [showDetailPage, setShowDetailPage] = useState<TrackType | null>(null);
   const [metadataStates, setMetadataStates] = useState<Record<string, boolean | null>>({}); // track id -> metadata exists
 
-  if (!tracks || tracks.length === 0) return null;
-
-  const mainTrack = tracks[0];
-  const hasMultipleVersions = tracks.length > 1;
-
   // Enhanced: Find playable link and type
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
     if (!track.links || track.links.length === 0) return null;
@@ -113,8 +108,8 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
   };
 
   // Check metadata for all tracks with pillowcase sources
-  // eslint-disable-next-line react-hooks/rules-of-hooks
   useEffect(() => {
+    if (!tracks || tracks.length === 0) return;
     const checkAllMetadata = async () => {
       const newStates: Record<string, boolean | null> = {};
       const promises: Promise<void>[] = [];
@@ -150,7 +145,12 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
     if (tracks.length > 0) {
       checkAllMetadata();
     }
-  }, [tracks.length]); // Only re-run when track count changes
+  }, [tracks, metadataStates]);
+
+  if (!tracks || tracks.length === 0) return null;
+
+  const mainTrack = tracks[0];
+  const hasMultipleVersions = tracks.length > 1;
 
   const openMetadataModal = (track: TrackType) => {
     const playable = getPlayableSource(track);

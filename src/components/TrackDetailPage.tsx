@@ -113,9 +113,8 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
   };
 
   return (
-    <div 
-      className="fixed inset-0 bg-black bg-opacity-80 backdrop-blur-sm flex items-center justify-center p-2 sm:p-4" 
-      style={{ zIndex: 50000 }}
+    <div
+      className="fixed inset-0 bg-black/80 backdrop-blur-sm overflow-y-auto p-2 sm:p-4 z-50 flex justify-center items-start"
       onClick={(e) => {
         // Close when clicking the backdrop
         if (e.target === e.currentTarget) {
@@ -123,8 +122,8 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
         }
       }}
     >
-      <div 
-        className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-xs sm:max-w-4xl max-h-[95vh] sm:max-h-[90vh] overflow-hidden shadow-2xl border border-gray-200 dark:border-gray-600"
+      <div
+        className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-xs sm:max-w-4xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden mt-4 mb-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
@@ -143,7 +142,7 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
         </div>
 
         {/* Scrollable Content */}
-        <div className="overflow-y-auto max-h-[calc(95vh-8rem)] sm:max-h-[calc(90vh-8rem)]">
+        <div className="overflow-y-auto max-h-[calc(100vh-8rem)]">
           <div className="p-6">
           {/* Track Info Grid */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">

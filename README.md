@@ -17,9 +17,7 @@ Your Google Sheets should contain the following columns:
 
 - **Era**: Album or era name
 - **Name**: Track name
-- **Link to google doc**: Link to track document
 - **Notes**: Additional track notes
-- **Discord link**: Discord discussion link
 - **Track Length**: Duration of the track
 - **File Date**: Date the file was created
 - **Leak Date**: Date the track was leaked
@@ -59,7 +57,6 @@ npm run dev
 1. Enter a Google Docs spreadsheet URL (must be publicly accessible)
 2. Click "Parse Spreadsheet" to analyze the data
 3. View organized artist, album, and track information
-4. Use the "Force refresh" option to bypass cache when needed
 
 ## Tech Stack
 
@@ -91,7 +88,6 @@ src/
 │   ├── api/
 │   │   ├── parse/               # Main parsing endpoint
 │   │   ├── parse-json/          # JSON data parsing endpoint
-│   │   ├── cache/               # Cache management
 │   │   ├── export/              # Data export functionality
 │   │   └── ...
 │   ├── [spreadsheetId]/         # Dynamic tracker pages
@@ -214,16 +210,6 @@ Visit `/debug` for an interactive debugging interface that allows you to:
 - See detailed parsing logs
 - Understand how the parser classifies each row (era vs track)
 - Examine column mapping and data processing
-
-## Caching
-
-The application uses a JSON-based caching system that:
-- Stores parsed spreadsheet data locally
-- Reduces API calls to Google Docs
-- Provides fallback data when parsing fails
-- Can be bypassed with the "Force refresh" option
-
-Cache files are stored in the `cache/` directory.
 
 ## Contributing
 

@@ -20,22 +20,35 @@ export default function MetadataModal({ isOpen, onClose, metadataUrl, trackName 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Handle escape key
+  // Handle escape key and prevent modal getting stuck
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && isOpen) {
+        e.preventDefault();
+        e.stopPropagation();
+        onClose();
+      }
+    };
+
+    const handleClickOutside = (e: MouseEvent) => {
+      const target = e.target as Element;
+      if (isOpen && target?.classList?.contains('modal-overlay')) {
+        e.preventDefault();
+        e.stopPropagation();
         onClose();
       }
     };
 
     if (isOpen) {
       document.addEventListener('keydown', handleEscape);
+      document.addEventListener('click', handleClickOutside);
       // Prevent body scroll when modal is open
       document.body.style.overflow = 'hidden';
     }
 
     return () => {
       document.removeEventListener('keydown', handleEscape);
+      document.removeEventListener('click', handleClickOutside);
       document.body.style.overflow = 'unset';
     };
   }, [isOpen, onClose]);
@@ -134,7 +147,7 @@ export default function MetadataModal({ isOpen, onClose, metadataUrl, trackName 
       >
         {/* Backdrop */}
         <div 
-          className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black bg-opacity-60 backdrop-blur-sm modal-overlay"
           onClick={onClose}
         />
         

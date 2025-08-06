@@ -36,29 +36,35 @@ export default function SpreadsheetPage() {
       setLoading(true);
       setError(null);
       try {
-        const url = currentSheet === 'unreleased' 
-          ? `/api/parse?docId=${spreadsheetId}`
-          : `/api/parse?docId=${spreadsheetId}&sheetType=${currentSheet}`;
-        
-        const response = await fetch(url);
-        if (!response.ok) {
-          throw new Error("Failed to fetch spreadsheet data");
+        // First, fetch only metadata for fast initial load
+        console.log('🚀 Fetching metadata for fast initial load...');
+        const metadataResponse = await fetch(`/api/parse-metadata?docId=${spreadsheetId}`);
+        if (!metadataResponse.ok) {
+          throw new Error("Failed to fetch spreadsheet metadata");
         }
-        const result = await response.json();
-        setData(result);
+        const metadataResult = await metadataResponse.json();
+        
+        // Set initial data with metadata only
+        setData(metadataResult);
+        setLoading(false);
+        
+        console.log('✅ Metadata loaded successfully:', {
+          name: metadataResult.artist.name,
+          eras: metadataResult.artist.albums.length,
+          totalTracks: metadataResult.artist.albums.reduce((sum: number, album: any) => sum + (album.metadata?.trackCount || 0), 0)
+        });
+        
       } catch (err) {
         setError(err instanceof Error ? err.message : "An unknown error occurred");
-      } finally {
         setLoading(false);
       }
     };
     fetchData();
-  }, [spreadsheetId, currentSheet]);
+  }, [spreadsheetId]);
 
   const handleSheetChange = async (newSheet: SheetType) => {
     if (newSheet === currentSheet) return;
     
-    setSheetLoading(true);
     setCurrentSheet(newSheet);
     
     // Update URL without page reload
@@ -70,22 +76,7 @@ export default function SpreadsheetPage() {
     }
     router.replace(url.pathname + url.search);
     
-    try {
-      const apiUrl = newSheet === 'unreleased' 
-        ? `/api/parse?docId=${spreadsheetId}`
-        : `/api/parse?docId=${spreadsheetId}&sheetType=${newSheet}`;
-      
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        throw new Error("Failed to fetch filtered data");
-      }
-      const result = await response.json();
-      setData(result);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load filtered data");
-    } finally {
-      setSheetLoading(false);
-    }
+    // No need to make API call - filtering is done client-side in Artist component
   };
 
   const handlePlayTrack = (track: Track) => {
@@ -106,45 +97,60 @@ export default function SpreadsheetPage() {
 
   if (loading || sheetLoading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
           isLoading={sheetLoading}
         />
-        <div className="p-8 text-center text-lg">
-          {sheetLoading ? 'Filtering tracks...' : 'Loading...'}
+        <div className="flex items-center justify-center pt-32">
+          <div className="text-center">
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600 mx-auto mb-6"></div>
+            <p className="text-purple-700 dark:text-purple-300 text-lg font-medium">
+              {sheetLoading ? 'Filtering tracks...' : 'Loading...'}
+            </p>
+          </div>
         </div>
       </div>
     );
   }
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
           isLoading={sheetLoading}
         />
-        <div className="p-8 text-center text-red-600">Error: {error}</div>
+        <div className="flex items-center justify-center pt-32">
+          <div className="text-center">
+            <div className="text-red-500 text-6xl mb-4">⚠️</div>
+            <p className="text-red-600 dark:text-red-400 text-lg">Error: {error}</p>
+          </div>
+        </div>
       </div>
     );
   }
   if (!data || !data.artist) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
           isLoading={sheetLoading}
         />
-        <div className="p-8 text-center">No data found for this spreadsheet.</div>
+        <div className="flex items-center justify-center pt-32">
+          <div className="text-center">
+            <div className="text-gray-500 text-6xl mb-4">📭</div>
+            <p className="text-gray-600 dark:text-gray-400 text-lg">No data found for this spreadsheet.</p>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
       <SheetNavigation 
         currentSheet={currentSheet}
         onSheetChange={handleSheetChange}

@@ -22,6 +22,8 @@ export interface Track {
   links: TrackLink[];
   isSpecial: boolean; // has 🏆 or ✨ emoji
   specialType?: '🏆' | '✨' | '⭐';
+  isWanted: boolean; // has medal emoji (🥇, 🥈, 🥉)
+  wantedType?: '🥇' | '🥈' | '🥉';
 }
 
 export interface TrackLink {
@@ -40,6 +42,7 @@ export interface EraMetadata {
   snippetFiles: number;
   stemBounceFiles: number;
   unavailableFiles: number;
+  trackCount?: number; // Total number of tracks in this era (for metadata-only mode)
 }
 
 export interface Era {
@@ -139,13 +142,6 @@ export interface Artist {
   lastUpdated: string;
 }
 
-export interface CacheMetadata {
-  lastModified?: string;
-  etag?: string;
-  contentLength?: number;
-  fetchedAt: string;
-}
-
 export interface TrackerConfig {
   name: string;
   hasUpdatesPage: boolean;
@@ -153,15 +149,6 @@ export interface TrackerConfig {
   columnMappings: Record<string, string[]>;
   eraPatterns: string[];
   footerPatterns: string[];
-}
-
-export interface CachedArtist extends Artist {
-  cacheMetadata: CacheMetadata;
-  config?: TrackerConfig;
-}
-
-export interface CachedData {
-  [googleDocId: string]: CachedArtist;
 }
 
 export interface ParsedSpreadsheetData {

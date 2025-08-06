@@ -24,27 +24,42 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
 
   return (
     <div className="max-w-2xl mx-auto p-6">
-      <div className="glass-effect rounded-2xl shadow-2xl p-8 border border-gray-200/50 dark:border-gray-700/30">
+      <div className="bg-slate-800 rounded-2xl shadow-2xl p-8 border border-slate-700">
         <div className="text-center mb-8">
           <div className="w-16 h-16 music-gradient rounded-2xl flex items-center justify-center mx-auto mb-4">
             <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3" />
             </svg>
           </div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-3">
+          <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-3">
             TrackerHub
           </h1>
-          <p className="text-gray-600 dark:text-gray-300 mb-4 text-lg">
+          <p className="text-slate-300 mb-4 text-lg">
             TrackerParse is an ad-free service that allows you to listen to audio from Google Sheets.
           </p>
-          <p className="text-gray-600 dark:text-gray-400">
+          <p className="text-slate-400">
             Enter a Google Docs spreadsheet URL to view artist tracks and albums
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
+          {/* Debug Theme Reset Button */}
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={() => {
+                localStorage.setItem('theme', 'light');
+                document.documentElement.classList.remove('dark');
+                window.location.reload();
+              }}
+              className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
+            >
+              Force Light Mode
+            </button>
+          </div>
+          
           <div>
-            <label htmlFor="google-docs-url" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label htmlFor="google-docs-url" className="block text-sm font-medium text-slate-200 mb-2">
               Google Docs Spreadsheet URL
             </label>
             <input
@@ -53,11 +68,11 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://docs.google.com/spreadsheets/d/..."
-              className="w-full px-4 py-4 border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-gray-900 dark:text-white rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all shadow-sm"
+              className="w-full px-4 py-4 border border-slate-600 bg-slate-700 text-slate-100 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none transition-all shadow-sm placeholder-slate-400"
               required
             />
             {url && !isValidGoogleDocsUrl(url) && (
-              <p className="text-red-500 text-sm mt-1">
+              <p className="text-red-600 dark:text-red-400 text-sm mt-1">
                 Please enter a valid Google Docs spreadsheet URL
               </p>
             )}

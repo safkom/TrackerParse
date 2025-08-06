@@ -18,7 +18,7 @@ export interface TrackerExport {
 }
 
 export class JSONExporter {
-  private static EXPORT_DIR = path.join(process.cwd(), 'exports');
+  private static EXPORT_DIR = path.join(process.cwd(), process.env.EXPORT_DIR || 'exports');
   
   // Ensure export directory exists
   static async ensureExportDir(): Promise<void> {

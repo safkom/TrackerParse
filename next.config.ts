@@ -37,6 +37,33 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'Content-Security-Policy',
+            value: process.env.NODE_ENV === 'production' 
+              ? "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://docs.google.com https://sheets.googleapis.com; media-src 'self' https://api.pillows.su https://pillows.su https://pillowcase.su https://music.froste.lol https://www.youtube.com https://soundcloud.com; object-src 'none'; base-uri 'self';"
+              : "default-src 'self'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; font-src 'self' data:; connect-src 'self' https://docs.google.com https://sheets.googleapis.com; media-src 'self' https://api.pillows.su https://pillows.su https://pillowcase.su https://music.froste.lol https://www.youtube.com https://soundcloud.com; object-src 'none'; base-uri 'self';",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;

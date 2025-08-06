@@ -114,7 +114,7 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
 
   return (
     <div
-      className="fixed inset-0 bg-black/80 backdrop-blur-sm overflow-y-auto p-2 sm:p-4 z-50 flex justify-center items-start"
+      className="fixed inset-0 bg-black/70 backdrop-blur-md overflow-y-auto p-2 sm:p-4 z-50 flex justify-center items-start"
       onClick={(e) => {
         // Close when clicking the backdrop
         if (e.target === e.currentTarget) {
@@ -123,19 +123,32 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
       }}
     >
       <div
-        className="bg-white dark:bg-gray-900 rounded-xl w-full max-w-xs sm:max-w-4xl shadow-2xl border border-gray-200 dark:border-gray-600 overflow-hidden mt-4 mb-4"
+        className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl w-full max-w-xs sm:max-w-4xl shadow-2xl border border-purple-200/50 dark:border-purple-700/50 overflow-hidden mt-4 mb-4"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="sticky top-0 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700 p-3 sm:p-6 flex items-center justify-between z-10">
-          <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white flex-1 pr-4 truncate">
-            {track.title?.main || track.rawName}
-          </h1>
+        <div className="sticky top-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-purple-200/30 dark:border-purple-700/30 p-4 sm:p-6 flex items-center justify-between z-10">
+          <div className="flex items-center gap-3 flex-1 pr-4">
+            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
+              {track.title?.main || track.rawName}
+            </h1>
+            {/* Special indicators in header */}
+            {track.isSpecial && track.specialType && (
+              <span className="text-xl animate-pulse" title="Special Track">
+                {track.specialType}
+              </span>
+            )}
+            {track.isWanted && track.wantedType && (
+              <span className="text-xl animate-bounce" title="Wanted Track">
+                {track.wantedType}
+              </span>
+            )}
+          </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            className="p-2 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors group"
           >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>

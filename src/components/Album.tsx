@@ -1,11 +1,14 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
 import Image from 'next/image';
 import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
-import CollapsedTrack from './CollapsedTrack';
-import StatsDisplay, { ExpandedStatsDisplay } from './StatsDisplay';
+
+// Lazy load heavy components for better performance
+const CollapsedTrack = lazy(() => import('./CollapsedTrack'));
+const StatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.default })));
+const ExpandedStatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.ExpandedStatsDisplay })));
 
 interface AlbumProps {
   album: AlbumType;
@@ -14,7 +17,7 @@ interface AlbumProps {
   isSearchActive?: boolean;
 }
 
-export default function Album({ album, onPlay, onScrollToTrack, isSearchActive = false }: AlbumProps) {
+const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActive = false }: AlbumProps) {
   const [isExpanded, setIsExpanded] = useState(isSearchActive);
   const [showStats, setShowStats] = useState(false);
   const [selectedQualities, setSelectedQualities] = useState<string[]>([]);
@@ -218,13 +221,15 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
         {/* Stats Display - now at the top when expanded */}
         {isExpanded && album.metadata && showStats && (
           <div className="mt-3 px-4">
-            <ExpandedStatsDisplay
-              eraName={album.name}
-              metadata={album.metadata}
-              onClose={() => setShowStats(false)}
-              selectedQualities={selectedQualities}
-              onQualityFilter={handleQualityFilter}
-            />
+            <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-32 rounded"></div>}>
+              <ExpandedStatsDisplay
+                eraName={album.name}
+                metadata={album.metadata}
+                onClose={() => setShowStats(false)}
+                selectedQualities={selectedQualities}
+                onQualityFilter={handleQualityFilter}
+              />
+            </Suspense>
           </div>
         )}
       </div>
@@ -236,12 +241,13 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
             {groupedTracks.length > 0 ? (
               <div className="space-y-2">
                 {groupedTracks.map((group, index) => (
-                  <CollapsedTrack 
-                    key={group.mainName + index} 
-                    tracks={group.tracks} 
-                    onPlay={onPlay} 
-                    onScrollToTrack={onScrollToTrack}
-                  />
+                  <Suspense key={group.mainName + index} fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>}>
+                    <CollapsedTrack 
+                      tracks={group.tracks} 
+                      onPlay={onPlay} 
+                      onScrollToTrack={onScrollToTrack}
+                    />
+                  </Suspense>
                 ))}
               </div>
             ) : (
@@ -256,4 +262,8 @@ export default function Album({ album, onPlay, onScrollToTrack, isSearchActive =
       )}
     </div>
   );
-}
+});
+
+Album.displayName = 'Album';
+
+export default Album;

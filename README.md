@@ -70,23 +70,41 @@ npm run dev
 - **PapaParse**: CSV parsing library
 - **Node.js**: Server-side runtime
 
-## Project Structure
+## 🏗️ Architecture
 
+### Parser Engine
+TrackerParse uses **ImprovedParser** as the single, consolidated parsing engine that handles:
+
+- **Multiple Input Formats**: CSV export URLs and JSON data
+- **Intelligent Era Detection**: Prevents songs from being incorrectly classified as eras
+- **Enhanced Track Parsing**: Extracts features, collaborators, producers, and alternate names
+- **Quality Standardization**: Maps quality indicators (HQ → High Quality, CDQ → CD Quality)
+- **Platform-Aware Link Categorization**: Detects Pillowcase, SoundCloud, YouTube, Spotify, etc.
+- **Advanced Date Parsing**: Handles multiple date formats and relative dates
+- **Rate Limiting & Retry Logic**: Robust error handling with exponential backoff
+- **Configurable Column Mapping**: Adapts to different tracker formats automatically
+
+### Project Structure
 ```
 src/
 ├── app/
-│   ├── api/parse/route.ts    # API endpoint for parsing Google Docs
-│   └── page.tsx              # Main application page
-├── components/
-│   ├── Artist.tsx            # Artist display component
-│   ├── Album.tsx             # Album display component
-│   ├── Track.tsx             # Track display component
-│   └── GoogleDocsForm.tsx    # URL input form
-├── types/
-│   └── index.ts              # TypeScript type definitions
-└── utils/
-    ├── googleDocsParser.ts   # Google Docs parsing logic
-    └── cacheManager.ts       # Caching system
+│   ├── api/
+│   │   ├── parse/               # Main parsing endpoint
+│   │   ├── parse-json/          # JSON data parsing endpoint
+│   │   ├── cache/               # Cache management
+│   │   ├── export/              # Data export functionality
+│   │   └── ...
+│   ├── [spreadsheetId]/         # Dynamic tracker pages
+│   ├── best/                    # Best tracks page
+│   ├── recent/                  # Recent tracks page
+│   └── ...
+├── components/                  # React components
+├── utils/
+│   ├── improvedParser.ts        # Main parsing engine ⭐
+│   ├── googleDocsParser.ts      # Deprecated - use ImprovedParser
+│   ├── cacheManager.ts          # Cache management
+│   └── ...
+└── types/                       # TypeScript definitions
 ```
 
 ## API Endpoints
@@ -117,6 +135,85 @@ Parse a Google Docs spreadsheet URL
 
 ### GET /api/parse?docId=...
 Retrieve cached data for a specific document ID
+
+### POST /api/debug/raw
+Get raw unparsed data from a Google Sheet for debugging
+
+**Request Body:**
+```json
+{
+  "googleDocsUrl": "https://docs.google.com/spreadsheets/d/..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "rawData": "CSV content...",
+  "analysis": {
+    "totalRows": 150,
+    "nonEmptyRows": 145,
+    "firstFewRows": [...],
+    "columnCount": 12
+  },
+  "potentialHeaders": [
+    {
+      "rowIndex": 2,
+      "row": ["Era", "Name", "Links", ...],
+      "hasEra": true,
+      "hasName": true,
+      "confidence": 100
+    }
+  ]
+}
+```
+
+### POST /api/debug/parse
+Get detailed parsing logs and step-by-step analysis
+
+**Request Body:**
+```json
+{
+  "googleDocsUrl": "https://docs.google.com/spreadsheets/d/..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "debugInfo": {
+    "rowAnalysis": {
+      "totalRows": 150,
+      "headerRowIndex": 2,
+      "eraRows": 8,
+      "trackRows": 135
+    },
+    "columnMap": {
+      "era": 0,
+      "name": 1,
+      "links": 2
+    }
+  },
+  "debugLogs": [
+    {
+      "step": "HEADER_FOUND",
+      "message": "Found header row at index 2",
+      "data": {...},
+      "timestamp": "2025-01-01T00:00:00.000Z"
+    }
+  ]
+}
+```
+
+### Debug Page
+Visit `/debug` for an interactive debugging interface that allows you to:
+- View raw CSV data from Google Sheets
+- Analyze potential header rows
+- See detailed parsing logs
+- Understand how the parser classifies each row (era vs track)
+- Examine column mapping and data processing
 
 ## Caching
 

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
 import { Track as TrackType } from '@/types';
 import MetadataModal from './MetadataModal';
 import TrackDetailPage from './TrackDetailPage';
@@ -49,7 +49,7 @@ interface CollapsedTrackProps {
   onScrollToTrack?: (trackId: string) => void;
 }
 
-export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: CollapsedTrackProps) {
+const CollapsedTrack = memo(function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: CollapsedTrackProps) {
   const [showVersionsView, setShowVersionsView] = useState(false);
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [selectedMetadataTrack, setSelectedMetadataTrack] = useState<TrackType | null>(null);
@@ -83,8 +83,55 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
     return null;
   };
 
+  // Memoized expensive calculations
+  const { primaryTrack, sortedTracks, cleanTitle, isCollapsed, hasPlayable } = useMemo(() => {
+    if (!tracks || tracks.length === 0) {
+      return { 
+        primaryTrack: null, 
+        sortedTracks: [], 
+        cleanTitle: 'Unknown', 
+        isCollapsed: false, 
+        hasPlayable: false 
+      };
+    }
+
+    // Sort tracks: special first, then by quality preference
+    const sorted = [...tracks].sort((a, b) => {
+      // Special tracks first
+      if (a.isSpecial && !b.isSpecial) return -1;
+      if (!a.isSpecial && b.isSpecial) return 1;
+      
+      // Then by quality preference
+      const qualityOrder = ['og', 'original', 'full', 'lossless', 'cd quality', 'tagged', 'partial', 'snippet', 'demo'];
+      const aQuality = (a.quality || '').toLowerCase();
+      const bQuality = (b.quality || '').toLowerCase();
+      
+      const aIndex = qualityOrder.findIndex(q => aQuality.includes(q));
+      const bIndex = qualityOrder.findIndex(q => bQuality.includes(q));
+      
+      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
+      if (aIndex !== -1) return -1;
+      if (bIndex !== -1) return 1;
+      
+      return 0;
+    });
+
+    const primary = sorted[0];
+    const title = extractCleanTitle(primary?.title?.main || primary?.rawName || 'Unknown');
+    const collapsed = sorted.length > 1;
+    const playableExists = sorted.some(track => getPlayableSource(track) !== null);
+
+    return {
+      primaryTrack: primary,
+      sortedTracks: sorted,
+      cleanTitle: title,
+      isCollapsed: collapsed,
+      hasPlayable: playableExists
+    };
+  }, [tracks]);
+
   // Function to check if metadata exists for a track
-  const checkMetadataExists = async (id: string): Promise<boolean> => {
+  const checkMetadataExists = useCallback(async (id: string): Promise<boolean> => {
     try {
       const metadataUrl = `https://api.pillows.su/api/metadata/${id}.txt`;
       const response = await fetch(metadataUrl, {
@@ -105,7 +152,7 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
       console.error('Error checking metadata:', error);
       return false;
     }
-  };
+  }, []);
 
   // Check metadata for all tracks with pillowcase sources
   useEffect(() => {
@@ -613,4 +660,8 @@ export default function CollapsedTrack({ tracks, onPlay, onScrollToTrack }: Coll
       })()}
     </div>
   );
-}
+});
+
+CollapsedTrack.displayName = 'CollapsedTrack';
+
+export default CollapsedTrack;

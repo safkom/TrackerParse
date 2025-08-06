@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, startTransition, useDeferredValue } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleDocsForm from '@/components/GoogleDocsForm';
 import Artist from '@/components/Artist';
@@ -16,7 +16,11 @@ export default function Home() {
   const [isMusicPlayerVisible, setIsMusicPlayerVisible] = useState(false);
   const [currentSheetType, setCurrentSheetType] = useState<SheetType>('unreleased');
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [currentDocId, setCurrentDocId] = useState<string>('');
   const router = useRouter();
+
+  // Use deferred value for better performance on large datasets
+  const deferredArtist = useDeferredValue(artist);
 
   // ...existing code for effects, reset, etc...
   const updateNavigationState = (hasData: boolean) => {
@@ -27,11 +31,15 @@ export default function Home() {
   };
 
   const handleResetApp = useCallback(() => {
-    setArtist(null);
-    setError(null);
-    setCurrentTrack(null);
-    setIsMusicPlayerVisible(false);
-    setLoading(false);
+    startTransition(() => {
+      setArtist(null);
+      setError(null);
+      setCurrentTrack(null);
+      setIsMusicPlayerVisible(false);
+      setLoading(false);
+      setCurrentUrl(null);
+      setCurrentDocId('');
+    });
     try {
       localStorage.removeItem('trackerData');
       Object.keys(localStorage).forEach(key => {
@@ -99,10 +107,8 @@ export default function Home() {
   }, [artist, handleResetApp]);
 
   const handleSheetChange = async (sheetType: SheetType) => {
-    if (!currentUrl) return;
-    
     setCurrentSheetType(sheetType);
-    await handleFormSubmit(currentUrl, sheetType);
+    // No need to make API call - filtering is done client-side
   };
 
   const handleFormSubmit = async (googleDocsUrl: string, sheetType: SheetType = 'unreleased') => {
@@ -110,6 +116,11 @@ export default function Home() {
     setError(null);
     setCurrentUrl(googleDocsUrl);
     setCurrentSheetType(sheetType);
+    
+    // Extract document ID from URL
+    const docIdMatch = googleDocsUrl.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
+    const docId = docIdMatch ? docIdMatch[1] : '';
+    setCurrentDocId(docId);
     
     try {
       const response = await fetch('/api/parse', {
@@ -119,7 +130,6 @@ export default function Home() {
         },
         body: JSON.stringify({
           googleDocsUrl,
-          sheetType,
         }),
       });
       const data: ParsedSpreadsheetData & { error?: string; id?: string } = await response.json();
@@ -131,8 +141,10 @@ export default function Home() {
         return;
       }
       if (data.artist) {
-        setError(null);
-        setArtist(data.artist);
+        startTransition(() => {
+          setError(null);
+          setArtist(data.artist);
+        });
         setTimeout(() => setError(null), 0);
         if (data.error) {
           console.warn('Info message from API:', data.error);
@@ -159,7 +171,7 @@ export default function Home() {
     localStorage.removeItem('trackerData');
   };
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900">
+    <div className="min-h-screen bg-slate-900">
       {!artist ? (
         <div className="py-12">
           <GoogleDocsForm onSubmit={handleFormSubmit} loading={loading} />
@@ -224,7 +236,16 @@ export default function Home() {
             </div>
           )}
           {/* Artist Display */}
-          <Artist artist={artist} onPlayTrack={handlePlayTrack} />
+          {deferredArtist && (
+            <Artist 
+              artist={deferredArtist} 
+              onPlayTrack={handlePlayTrack}
+              onTrackInfo={handlePlayTrack} // Use same handler for track info for now
+              docId={currentDocId}
+              sourceUrl={currentUrl || ''}
+              sheetType={currentSheetType}
+            />
+          )}
         </div>
       )}
       {/* Music Player */}

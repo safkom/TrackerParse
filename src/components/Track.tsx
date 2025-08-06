@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, memo, useMemo } from 'react';
 import { Track as TrackType } from '@/types';
 import MetadataModal from './MetadataModal';
 import TrackDetailPage from './TrackDetailPage';
@@ -11,10 +11,10 @@ interface TrackProps {
   onScrollToTrack?: (trackId: string) => void;
 }
 
-export default function Track({ track, onPlay, onScrollToTrack }: TrackProps) {
+const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
   const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [showDetailPage, setShowDetailPage] = useState(false);
-  const [metadataExists, setMetadataExists] = useState<boolean | null>(null); // null = unknown, true = exists, false = doesn't exist
+  const [metadataExists, setMetadataExists] = useState<boolean | null>(null);
   const [metadataChecked, setMetadataChecked] = useState(false);
   
   // Enhanced: Find playable link and type
@@ -77,14 +77,22 @@ export default function Track({ track, onPlay, onScrollToTrack }: TrackProps) {
     }
   }, [isPillowcase, playable?.id, metadataChecked]);
   
-  // Check if track is not available based on quality or available length
-  const isNotAvailable = track.quality?.toLowerCase().includes('not available') || 
+  // Memoize expensive calculations
+  const { isNotAvailable, hasPlayableLink } = useMemo(() => {
+    // Check if track is not available based on quality or available length
+    const notAvailable = track.quality?.toLowerCase().includes('not available') || 
                          track.availableLength?.toLowerCase().includes('not available') ||
                          track.quality?.toLowerCase().includes('unavailable') ||
                          track.availableLength?.toLowerCase().includes('unavailable');
-  
-  const hasPlayableLink = playable !== null && !isNotAvailable;
+    
+    const hasPlayable = playable !== null && !notAvailable;
 
+    return {
+      isNotAvailable: notAvailable,
+      hasPlayableLink: hasPlayable
+    };
+  }, [track.quality, track.availableLength, playable]);
+  
   const handleTrackClick = () => {
     setShowDetailPage(true);
     onScrollToTrack?.(track.id || track.rawName);
@@ -100,9 +108,15 @@ export default function Track({ track, onPlay, onScrollToTrack }: TrackProps) {
     );
   }
 
+  const trackClassName = `track-item bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-purple-200/30 dark:border-purple-700/30 shadow-sm hover:shadow-xl hover:bg-white dark:hover:bg-gray-800 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:border-purple-300/50 dark:hover:border-purple-600/50 hover-lift ${
+    track.isSpecial ? 'special-track' : ''
+  } ${
+    track.isWanted ? 'wanted-track' : ''
+  }`;
+
   return (
     <div 
-      className="track-item bg-white dark:bg-gray-800 rounded-lg p-2 sm:p-3 border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md cursor-pointer transition-all duration-200"
+      className={trackClassName}
       onClick={handleTrackClick}
     >
       {/* Mobile-first compact layout */}
@@ -115,16 +129,38 @@ export default function Track({ track, onPlay, onScrollToTrack }: TrackProps) {
                 {track.title?.main || track.rawName}
               </h3>
               
-              {/* Special indicator */}
-              {track.isSpecial && track.specialType && (
-                <span className="text-sm sm:text-lg flex-shrink-0" title={
-                  track.specialType === '⭐' ? 'Best Of' :
-                  track.specialType === '✨' ? 'Special' :
-                  'Wanted'
-                }>
-                  {track.specialType}
-                </span>
-              )}
+              {/* Special indicators */}
+              <div className="flex items-center gap-1 flex-shrink-0">
+                {/* Special tracks (trophy, star) */}
+                {track.isSpecial && track.specialType && (
+                  <span 
+                    className="text-sm sm:text-lg animate-pulse" 
+                    title={
+                      track.specialType === '⭐' ? 'Best Of' :
+                      track.specialType === '✨' ? 'Special' :
+                      track.specialType === '🏆' ? 'Trophy Track' :
+                      'Special'
+                    }
+                  >
+                    {track.specialType}
+                  </span>
+                )}
+                
+                {/* Wanted tracks (medals) */}
+                {track.isWanted && track.wantedType && (
+                  <span 
+                    className="text-sm sm:text-lg animate-bounce" 
+                    title={
+                      track.wantedType === '🥇' ? 'Most Wanted' :
+                      track.wantedType === '🥈' ? 'Highly Wanted' :
+                      track.wantedType === '🥉' ? 'Wanted' :
+                      'Wanted Track'
+                    }
+                  >
+                    {track.wantedType}
+                  </span>
+                )}
+              </div>
               
               {/* Metadata button for Pillowcase tracks - mobile only */}
               {isPillowcase && playable?.id && metadataExists === true && (
@@ -264,4 +300,8 @@ export default function Track({ track, onPlay, onScrollToTrack }: TrackProps) {
       )}
     </div>
   );
-}
+});
+
+Track.displayName = 'Track';
+
+export default Track;

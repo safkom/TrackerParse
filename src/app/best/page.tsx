@@ -88,19 +88,19 @@ export default function BestTracks() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-purple-100 dark:from-gray-900 dark:to-purple-900/50">
       <Navigation />
       
       <div className="container mx-auto px-4 pt-24 pb-8">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-amber-900 dark:text-amber-100 mb-2">
-            🏆 Best Tracks
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            🏆 Best & Wanted
           </h1>
-          <p className="text-amber-700 dark:text-amber-300">
-            The most special tracks - featuring trophy, star, and wanted selections
+          <p className="text-purple-700 dark:text-purple-300">
+            A curated list of the most special and sought-after tracks.
           </p>
-          <div className="mt-4 text-sm text-amber-600 dark:text-amber-400">
-            {bestTracks.length} special tracks found
+          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            {bestTracks.length} tracks found
           </div>
         </div>
 

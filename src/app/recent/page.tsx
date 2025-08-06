@@ -89,19 +89,19 @@ export default function RecentTracks() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-emerald-50 to-teal-100 dark:from-gray-900 dark:to-gray-800">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 to-blue-100 dark:from-gray-900 dark:to-blue-900/50">
       <Navigation />
       
       <div className="container mx-auto px-4 pt-24 pb-8">
         <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-emerald-900 dark:text-emerald-100 mb-2">
-            🕐 Recent Tracks
+          <h1 className="text-4xl font-bold text-gray-900 dark:text-white mb-2">
+            🕐 Recently Leaked
           </h1>
-          <p className="text-emerald-700 dark:text-emerald-300">
-            Latest leaks and updates - sorted by leak date
+          <p className="text-blue-700 dark:text-blue-300">
+            The latest tracks to surface, sorted by leak date.
           </p>
-          <div className="mt-4 text-sm text-emerald-600 dark:text-emerald-400">
-            {recentTracks.length} recent tracks found
+          <div className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            Showing the {recentTracks.length} most recent tracks
           </div>
         </div>
 

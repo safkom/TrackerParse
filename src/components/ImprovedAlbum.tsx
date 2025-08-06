@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName } from '@/utils/trackCollapsing';
 import Track from './Track';
-import TrackDetailsModal from './TrackDetailsModal';
+import TrackDetailPage from './TrackDetailPage';
 
 interface ImprovedAlbumProps {
   album: AlbumType;
@@ -324,7 +324,7 @@ export default function ImprovedAlbum({
 
       {/* Track Details Modal */}
       {selectedTrack && (
-        <TrackDetailsModal
+        <TrackDetailPage
           track={selectedTrack}
           onClose={closeTrackDetails}
           onPlay={onPlay}

@@ -6,7 +6,7 @@ import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
 
 // Lazy load heavy components for better performance
-const CollapsedTrack = lazy(() => import('./CollapsedTrack'));
+const TrackGroup = lazy(() => import('./TrackGroup'));
 const StatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.default })));
 const ExpandedStatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.ExpandedStatsDisplay })));
 
@@ -240,15 +240,26 @@ const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActi
           <div className="border-t border-gray-200 dark:border-gray-600 pt-3">
             {groupedTracks.length > 0 ? (
               <div className="space-y-2">
-                {groupedTracks.map((group, index) => (
-                  <Suspense key={group.mainName + index} fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>}>
-                    <CollapsedTrack 
-                      tracks={group.tracks} 
-                      onPlay={onPlay} 
-                      onScrollToTrack={onScrollToTrack}
-                    />
-                  </Suspense>
-                ))}
+                {groupedTracks.map((group, index) => {
+                  // Convert the data structure to match TrackGroup expectations
+                  const trackGroup = {
+                    id: group.mainName + index,
+                    baseName: group.mainName,
+                    isUnknown: false,
+                    tracks: group.tracks,
+                    mainTrack: group.tracks[0] // Use the first track as main track
+                  };
+                  
+                  return (
+                    <Suspense key={group.mainName + index} fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>}>
+                      <TrackGroup 
+                        group={trackGroup}
+                        onPlay={onPlay} 
+                        onScrollToTrack={onScrollToTrack}
+                      />
+                    </Suspense>
+                  );
+                })}
               </div>
             ) : (
               <div className="text-center py-8 text-gray-500 dark:text-gray-400">

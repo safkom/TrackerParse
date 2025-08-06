@@ -2,8 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import { Track as TrackType } from '@/types';
-import MetadataModal from './MetadataModal';
 import MusicPlayer from './MusicPlayer';
+import InfoCard from './InfoCard';
+import QualityTag from './QualityTag';
+import {
+  ClockIcon,
+  CalendarIcon,
+  TagIcon,
+  MusicalNoteIcon,
+  SparklesIcon,
+  TrophyIcon,
+  UserGroupIcon,
+  LinkIcon,
+  PlayCircleIcon,
+  InformationCircleIcon,
+} from '@heroicons/react/24/outline';
 
 interface TrackDetailPageProps {
   track: TrackType;
@@ -12,7 +25,6 @@ interface TrackDetailPageProps {
 }
 
 export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailPageProps) {
-  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<TrackType | null>(null);
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
 
@@ -63,12 +75,6 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
         setCurrentTrack(track);
         setShowMusicPlayer(true);
       }
-    }
-  };
-
-  const handleMetadataClick = () => {
-    if (isPillowcase && playable?.id) {
-      setIsMetadataModalOpen(true);
     }
   };
 
@@ -157,291 +163,202 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
         {/* Scrollable Content */}
         <div className="overflow-y-auto max-h-[calc(100vh-8rem)]">
           <div className="p-6">
-          {/* Track Info Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-            {/* Left Column - Basic Info */}
-            <div className="space-y-6">
-              {/* Era Badge */}
-              <div>
-                <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Era</h3>
-                <span className="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200">
+            {/* Track Info Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
+              <InfoCard icon={<MusicalNoteIcon className="w-6 h-6" />} title="Era">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
+                  <span className="mr-2">🎭</span>
                   {track.era}
                 </span>
-              </div>
-
-              {/* Special Status */}
+              </InfoCard>
+              <InfoCard icon={<ClockIcon className="w-6 h-6" />} title="Length">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
+                  <span className="mr-2">⏱️</span>
+                  {track.trackLength || 'Unknown'}
+                </span>
+              </InfoCard>
+              <InfoCard icon={<TagIcon className="w-6 h-6" />} title="Quality">
+                <QualityTag quality={track.quality || 'Unknown'} />
+              </InfoCard>
+              <InfoCard icon={<CalendarIcon className="w-6 h-6" />} title="File Date">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
+                  <span className="mr-2">📁</span>
+                  {formatDate(track.fileDate)}
+                </span>
+              </InfoCard>
+              <InfoCard icon={<CalendarIcon className="w-6 h-6" />} title="Leak Date">
+                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 border border-red-200 dark:border-red-700">
+                  <span className="mr-2">🔓</span>
+                  {formatDate(track.leakDate)}
+                </span>
+              </InfoCard>
+              
               {track.isSpecial && track.specialType && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Special Status</h3>
-                  <span className={`inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium ${
-                    track.specialType === '⭐' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200' :
-                    track.specialType === '✨' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200' :
-                    'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200'
+                <InfoCard 
+                  icon={track.specialType === '🏆' ? <TrophyIcon className="w-6 h-6" /> : <SparklesIcon className="w-6 h-6" />} 
+                  title="Special Status"
+                >
+                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
+                    track.specialType === '⭐' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700' :
+                    track.specialType === '✨' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 border-purple-200 dark:border-purple-700' :
+                    'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-700'
                   }`}>
-                    {track.specialType} {
-                      track.specialType === '⭐' ? 'Best Of' :
-                      track.specialType === '✨' ? 'Special' :
-                      'Wanted'
-                    }
+                    <span className="mr-2">{track.specialType}</span>
+                    {track.specialType === '⭐' ? 'Best Of' :
+                     track.specialType === '✨' ? 'Special' :
+                     'Wanted'}
                   </span>
-                </div>
+                </InfoCard>
               )}
-
-              {/* Similar Names */}
-              {getSimilarNames().length > 1 && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Similar Names</h3>
-                  <div className="space-y-1">
-                    {getSimilarNames().map((name, index) => (
-                      <div key={index} className="text-sm text-gray-700 dark:text-gray-300 p-2 bg-gray-50 dark:bg-gray-800 rounded">
-                        {name}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Track Details */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Track Length</h3>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {track.trackLength || 'Unknown'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Available Length</h3>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {track.availableLength || 'Unknown'}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Quality</h3>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {track.quality || 'Unknown'}
-                  </p>
-                </div>
-              </div>
             </div>
 
-            {/* Right Column - Dates & Metadata */}
-            <div className="space-y-6">
-              {/* Dates */}
-              <div className="grid grid-cols-1 gap-4">
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">File Date</h3>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {formatDate(track.fileDate)}
-                  </p>
-                </div>
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-1">Leak Date</h3>
-                  <p className="text-sm text-gray-900 dark:text-white">
-                    {formatDate(track.leakDate)}
-                  </p>
-                </div>
-              </div>
-
-              {/* Credits */}
-              {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length || track.title?.references?.length) && (
-                <div>
-                  <h3 className="text-sm font-medium text-gray-500 dark:text-gray-400 mb-2">Credits</h3>
-                  <div className="space-y-2">
-                    {track.title?.features?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Features:</span>
+            {/* Credits */}
+            {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length) && (
+              <InfoCard icon={<UserGroupIcon className="w-6 h-6" />} title="Credits" className="mb-8">
+                <div className="space-y-3">
+                  {track.title?.features?.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <span className="mr-2">🎤</span>
+                        Featured Artists
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
                         {track.title.features.map((feature, index) => (
-                          <span key={index} className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
+                          <span key={index} className="text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-700">
                             {feature}
                           </span>
                         ))}
                       </div>
-                    )}
-                    {track.title?.collaborators?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Collaborators:</span>
+                    </div>
+                  )}
+                  {track.title?.collaborators?.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <span className="mr-2">🤝</span>
+                        Collaborators
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
                         {track.title.collaborators.map((collab, index) => (
-                          <span key={index} className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
+                          <span key={index} className="text-sm px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full border border-green-200 dark:border-green-700">
                             {collab}
                           </span>
                         ))}
                       </div>
-                    )}
-                    {track.title?.producers?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">Producers:</span>
+                    </div>
+                  )}
+                  {track.title?.producers?.length > 0 && (
+                    <div>
+                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                        <span className="mr-2">🎛️</span>
+                        Producers
+                      </h5>
+                      <div className="flex flex-wrap gap-2">
                         {track.title.producers.map((producer, index) => (
-                          <span key={index} className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900 text-purple-700 dark:text-purple-300 rounded">
+                          <span key={index} className="text-sm px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-700">
                             {producer}
                           </span>
                         ))}
                       </div>
-                    )}
-                    {track.title?.references?.length > 0 && (
-                      <div className="flex flex-wrap gap-1">
-                        <span className="text-xs font-medium text-gray-600 dark:text-gray-400">References:</span>
-                        {track.title.references.map((reference, index) => (
-                          <span key={index} className="text-xs px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-700 dark:text-orange-300 rounded">
-                            {reference}
-                          </span>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
+              </InfoCard>
+            )}
 
-          {/* Description/Notes */}
-          {track.notes && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Notes & Description</h3>
-              <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4">
+            {/* Description/Notes */}
+            {track.notes && (
+              <InfoCard icon={<InformationCircleIcon className="w-6 h-6" />} title="Notes & Description" className="mb-8">
                 <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
                   {track.notes}
                 </p>
-              </div>
-            </div>
-          )}
-
-          {/* Action Buttons */}
-          <div className="flex flex-wrap gap-3 mb-8">
-            {hasPlayableLink && (
-              <button
-                onClick={handlePlayTrack}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                </svg>
-                <span>Play Track</span>
-              </button>
+              </InfoCard>
             )}
 
-            {isPillowcase && playable?.id && (
-              <button
-                onClick={handleMetadataClick}
-                className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-              >
-                <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                </svg>
-                <span>View Metadata</span>
-              </button>
+            {/* Action Buttons */}
+            <div className="flex flex-wrap gap-3 mb-8">
+              {hasPlayableLink && (
+                <button
+                  onClick={handlePlayTrack}
+                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
+                >
+                  <PlayCircleIcon className="w-6 h-6" />
+                  <span>Play Track</span>
+                </button>
+              )}
+
+              
+            </div>
+
+            {/* Links */}
+            {track.links && track.links.length > 0 && (
+              <InfoCard icon={<LinkIcon className="w-6 h-6" />} title="Links">
+                <div className="grid grid-cols-1 gap-3">
+                  {track.links.map((link, index) => {
+                    const originalUrl = typeof link === 'string' ? link : link.url;
+                    const label = typeof link === 'string' ? `Link ${index + 1}` : (link.label || `Link ${index + 1}`);
+                    
+                    let displayUrl = originalUrl;
+                    if (originalUrl.match(/music\.froste\.lol/i)) {
+                      displayUrl = originalUrl.endsWith('/') ? `${originalUrl}download` : `${originalUrl}/download`;
+                    }
+                    
+                    const isPlayableLink = (originalUrl.match(/pillow(case)?s?\.(su|top)/i) && originalUrl.match(/[a-f0-9]{32}/i)) || 
+                                          originalUrl.match(/music\.froste\.lol/i);
+                    
+                    return (
+                      <div
+                        key={index}
+                        className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900 dark:hover:bg-blue-800 rounded-lg transition-colors"
+                      >
+                        {isPlayableLink && onPlay && (
+                          <button
+                            onClick={() => {
+                              const tempTrack = { ...track, links: [typeof link === 'string' ? link : link] };
+                              onPlay(tempTrack);
+                            }}
+                            className="flex items-center justify-center w-10 h-10 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105 flex-shrink-0"
+                            title="Play this link"
+                          >
+                            <PlayCircleIcon className="w-6 h-6" />
+                          </button>
+                        )}
+                        
+                        <button
+                          onClick={() => window.open(displayUrl, '_blank', 'noopener,noreferrer')}
+                          className="flex items-center space-x-2 text-blue-800 dark:text-blue-200 text-sm flex-1 min-w-0"
+                        >
+                          <LinkIcon className="w-4 h-4 flex-shrink-0" />
+                          <span className="truncate">{label}</span>
+                        </button>
+                        
+                        <div className="flex-shrink-0">
+                          {originalUrl.match(/pillow(case)?s?\.(su|top)/i) && (
+                            <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-full">
+                              Pillowcase
+                            </span>
+                          )}
+                          {originalUrl.match(/music\.froste\.lol/i) && (
+                            <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded-full">
+                              Froste
+                            </span>
+                          )}
+                          {!originalUrl.match(/pillow(case)?s?\.(su|top)/i) && !originalUrl.match(/music\.froste\.lol/i) && (
+                            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+                              External
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </InfoCard>
             )}
           </div>
-
-          {/* Links */}
-          {track.links && track.links.length > 0 && (
-            <div className="mb-8">
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-3">Links</h3>
-              <div className="grid grid-cols-1 gap-3">
-                {track.links.map((link, index) => {
-                  const originalUrl = typeof link === 'string' ? link : link.url;
-                  const label = typeof link === 'string' ? `Link ${index + 1}` : (link.label || `Link ${index + 1}`);
-                  
-                  // Transform froste URLs for display and playback
-                  let displayUrl = originalUrl;
-                  if (originalUrl.match(/music\.froste\.lol/i)) {
-                    displayUrl = originalUrl.endsWith('/') ? `${originalUrl}download` : `${originalUrl}/download`;
-                  }
-                  
-                  // Check if this link is playable
-                  const isPlayableLink = (originalUrl.match(/pillow(case)?s?\.(su|top)/i) && originalUrl.match(/[a-f0-9]{32}/i)) || 
-                                        originalUrl.match(/music\.froste\.lol/i);
-                  
-                  return (
-                    <div
-                      key={index}
-                      className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900 dark:hover:bg-blue-800 rounded-lg transition-colors"
-                    >
-                      {/* Play Button - only show for playable links */}
-                      {isPlayableLink && onPlay && (
-                        <button
-                          onClick={() => {
-                            // Create a temporary track object for this specific link
-                            const tempTrack = {
-                              ...track,
-                              links: [typeof link === 'string' ? link : link] // Keep the original link format
-                            };
-                            onPlay(tempTrack);
-                          }}
-                          className="flex items-center justify-center w-10 h-10 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105 flex-shrink-0"
-                          title="Play this link"
-                        >
-                          <svg className="w-4 h-4 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      )}
-                      
-                      {/* Info Button - shows link details */}
-                      <button
-                        onClick={() => {
-                          // Show link details in an alert (temporary solution)
-                          const linkInfo = `Link ${index + 1}: ${originalUrl}\nType: ${
-                            originalUrl.match(/pillow(case)?s?\.(su|top)/i) ? 'Pillowcase' :
-                            originalUrl.match(/music\.froste\.lol/i) ? 'Froste' : 'External'
-                          }\nPlayable: ${isPlayableLink ? 'Yes' : 'No'}`;
-                          alert(linkInfo);
-                        }}
-                        className="flex items-center justify-center w-10 h-10 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white rounded-full transition-all duration-300 hover:scale-105 flex-shrink-0"
-                        title="Info for this link"
-                      >
-                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                        </svg>
-                      </button>
-                      
-                      {/* Link Button */}
-                      <button
-                        onClick={() => window.open(displayUrl, '_blank', 'noopener,noreferrer')}
-                        className="flex items-center space-x-2 text-blue-800 dark:text-blue-200 text-sm flex-1 min-w-0"
-                      >
-                        <svg className="w-4 h-4 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-                          <path fillRule="evenodd" d="M12.586 4.586a2 2 0 112.828 2.828l-3 3a2 2 0 01-2.828 0 1 1 0 00-1.414 1.414 4 4 0 005.656 0l3-3a4 4 0 00-5.656-5.656l-1.5 1.5a1 1 0 101.414 1.414l1.5-1.5zm-5 5a2 2 0 012.828 0 1 1 0 101.414-1.414 4 4 0 00-5.656 0l-3 3a4 4 0 105.656 5.656l-1.5-1.5a1 1 0 10-1.414-1.414l-1.5 1.5a2 2 0 11-2.828-2.828l3-3z" clipRule="evenodd" />
-                        </svg>
-                        <span className="truncate">{label}</span>
-                      </button>
-                      
-                      {/* Link type indicator */}
-                      <div className="flex-shrink-0">
-                        {originalUrl.match(/pillow(case)?s?\.(su|top)/i) && (
-                          <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-full">
-                            Pillowcase
-                          </span>
-                        )}
-                        {originalUrl.match(/music\.froste\.lol/i) && (
-                          <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded-full">
-                            Froste
-                          </span>
-                        )}
-                        {!originalUrl.match(/pillow(case)?s?\.(su|top)/i) && !originalUrl.match(/music\.froste\.lol/i) && (
-                          <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-                            External
-                          </span>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          )}
         </div>
       </div>
-    </div>
 
-      {/* Metadata Modal */}
-      {isPillowcase && playable?.id && (
-        <MetadataModal
-          isOpen={isMetadataModalOpen}
-          onClose={() => setIsMetadataModalOpen(false)}
-          metadataUrl={`https://api.pillows.su/api/metadata/${playable.id}.txt`}
-          trackName={track?.title?.main || track?.rawName || 'Unknown Track'}
-        />
-      )}
+      
 
       {/* Music Player */}
       {showMusicPlayer && currentTrack && (

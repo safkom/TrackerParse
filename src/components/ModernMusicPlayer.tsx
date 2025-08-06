@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react';
 import { Track } from '@/types';
-import MetadataModal from './MetadataModal';
 import AudioPlayer from 'react-h5-audio-player';
 import 'react-h5-audio-player/lib/styles.css';
 import '@/styles/modern-player.css';
@@ -14,7 +13,6 @@ interface ModernMusicPlayerProps {
 }
 
 export default function ModernMusicPlayer({ track, isVisible, onClose }: ModernMusicPlayerProps) {
-  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
   const [audioOnlyMode, setAudioOnlyMode] = useState(false);
 
   // Enhanced: Find playable link and type
@@ -220,24 +218,6 @@ export default function ModernMusicPlayer({ track, isVisible, onClose }: ModernM
             </div>
 
             <div className="flex items-center space-x-2 flex-shrink-0">
-              {/* Metadata Button */}
-              {isPillowcase && playable?.id && (
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    setIsMetadataModalOpen(true);
-                  }}
-                  className="p-2.5 text-gray-500 hover:text-blue-600 dark:text-gray-400 dark:hover:text-blue-400 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-700 active:scale-95"
-                  title="View metadata"
-                  aria-label="View track metadata"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </button>
-              )}
-
               {/* Close Button */}
               <button
                 onClick={onClose}
@@ -256,15 +236,7 @@ export default function ModernMusicPlayer({ track, isVisible, onClose }: ModernM
         </div>
       </div>
 
-      {/* Metadata Modal */}
-      {isPillowcase && playable?.id && (
-        <MetadataModal
-          isOpen={isMetadataModalOpen}
-          onClose={() => setIsMetadataModalOpen(false)}
-          metadataUrl={`https://api.pillows.su/api/metadata/${playable.id}.txt`}
-          trackName={track?.title?.main || track?.rawName || 'Unknown Track'}
-        />
-      )}
+      
     </div>
   );
 }

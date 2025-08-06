@@ -1,31 +1,25 @@
 'use client';
 
-import React, { useState, useEffect, memo, useMemo } from 'react';
+import React, { useState, useMemo, memo } from 'react';
 import { Track as TrackType } from '@/types';
-import MetadataModal from './MetadataModal';
 import TrackDetailPage from './TrackDetailPage';
+import QualityTag from './QualityTag';
 
 interface TrackProps {
   track: TrackType;
   onPlay?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
+  isCompact?: boolean;
 }
 
-const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
-  const [isMetadataModalOpen, setIsMetadataModalOpen] = useState(false);
+const Track = memo(({ track, onPlay, onScrollToTrack, isCompact = false }: TrackProps) => {
   const [showDetailPage, setShowDetailPage] = useState(false);
-  const [metadataExists, setMetadataExists] = useState<boolean | null>(null);
-  const [metadataChecked, setMetadataChecked] = useState(false);
   
-  // Enhanced: Find playable link and type
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
     if (!track.links || track.links.length === 0) return null;
     for (const link of track.links) {
       const url = typeof link === 'string' ? link : link.url;
-      // Pillowcase API (pillows.su, pillowcase.su, pillowcases.su, pillowcases.top) including /f/<id> alternate links
       if (url.match(/pillow(case)?s?\.(su|top)/i)) {
-        // Try to extract id from /f/<id> or anywhere in the URL
-        // Match /f/<32hex> or any 32 hex chars
         let match = url.match(/\/f\/([a-f0-9]{32})/i);
         if (!match) {
           match = url.match(/([a-f0-9]{32})/i);
@@ -35,8 +29,6 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
           return { type: 'pillowcase', url, id };
         }
       }
-      
-      // Music.froste.lol support - add /download to the end
       if (url.match(/music\.froste\.lol/i)) {
         const downloadUrl = url.endsWith('/') ? `${url}download` : `${url}/download`;
         return { type: 'froste', url: downloadUrl };
@@ -46,40 +38,8 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
   };
 
   const playable = getPlayableSource(track);
-  const isPillowcase = playable?.type === 'pillowcase';
   
-  // Function to check if metadata exists
-  const checkMetadataExists = async (id: string): Promise<boolean> => {
-    try {
-      const metadataUrl = `https://api.pillows.su/api/metadata/${id}.txt`;
-      const response = await fetch(`/api/proxy-metadata?url=${encodeURIComponent(metadataUrl)}`);
-      
-      if (!response.ok) {
-        return false;
-      }
-      
-      const text = await response.text();
-      // Check if the response contains actual metadata (not just an error message)
-      return text.trim().length > 0 && !text.toLowerCase().includes('not found') && !text.toLowerCase().includes('error');
-    } catch (error) {
-      console.error('Error checking metadata:', error);
-      return false;
-    }
-  };
-
-  // Check metadata availability when component mounts and playable source is available
-  useEffect(() => {
-    if (isPillowcase && playable?.id && !metadataChecked) {
-      setMetadataChecked(true);
-      checkMetadataExists(playable.id).then(exists => {
-        setMetadataExists(exists);
-      });
-    }
-  }, [isPillowcase, playable?.id, metadataChecked]);
-  
-  // Memoize expensive calculations
   const { isNotAvailable, hasPlayableLink } = useMemo(() => {
-    // Check if track is not available based on quality or available length
     const notAvailable = track.quality?.toLowerCase().includes('not available') || 
                          track.availableLength?.toLowerCase().includes('not available') ||
                          track.quality?.toLowerCase().includes('unavailable') ||
@@ -108,7 +68,7 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
     );
   }
 
-  const trackClassName = `track-item bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl p-3 sm:p-4 border border-purple-200/30 dark:border-purple-700/30 shadow-sm hover:shadow-xl hover:bg-white dark:hover:bg-gray-800 cursor-pointer transition-all duration-300 hover:scale-[1.02] hover:border-purple-300/50 dark:hover:border-purple-600/50 hover-lift ${
+  const trackClassName = `track-item bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl ${isCompact ? 'p-2' : 'p-3 sm:p-4'} border border-purple-200/30 dark:border-purple-700/30 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-gray-800 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:border-purple-300/50 dark:hover:border-purple-600/50 ${
     track.isSpecial ? 'special-track' : ''
   } ${
     track.isWanted ? 'wanted-track' : ''
@@ -119,9 +79,7 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
       className={trackClassName}
       onClick={handleTrackClick}
     >
-      {/* Mobile-first compact layout */}
       <div className="space-y-2">
-        {/* Top row - Title and Play button */}
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -129,9 +87,7 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
                 {track.title?.main || track.rawName}
               </h3>
               
-              {/* Special indicators */}
               <div className="flex items-center gap-1 flex-shrink-0">
-                {/* Special tracks (trophy, star) */}
                 {track.isSpecial && track.specialType && (
                   <span 
                     className="text-sm sm:text-lg animate-pulse" 
@@ -146,7 +102,6 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
                   </span>
                 )}
                 
-                {/* Wanted tracks (medals) */}
                 {track.isWanted && track.wantedType && (
                   <span 
                     className="text-sm sm:text-lg animate-bounce" 
@@ -161,27 +116,9 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
                   </span>
                 )}
               </div>
-              
-              {/* Metadata button for Pillowcase tracks - mobile only */}
-              {isPillowcase && playable?.id && metadataExists === true && (
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsMetadataModalOpen(true);
-                  }}
-                  className="px-1.5 py-0.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs rounded transition-all duration-200 flex items-center space-x-1 sm:hidden flex-shrink-0"
-                  title="View track metadata"
-                >
-                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-                  </svg>
-                  <span>Info</span>
-                </button>
-              )}
             </div>
             
-            {/* Alternate titles - more compact on mobile */}
-            {track.title?.alternateNames && track.title.alternateNames.length > 0 && (
+            {!isCompact && track.title?.alternateNames && track.title.alternateNames.length > 0 && (
               <p className="text-xs text-gray-500 dark:text-gray-400 italic mt-0.5 line-clamp-1">
                 Also: {track.title.alternateNames.slice(0, 1).join(', ')}
                 {track.title.alternateNames.length > 1 && ' ...'}
@@ -189,7 +126,6 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
             )}
           </div>
           
-          {/* Play Button - smaller on mobile */}
           {hasPlayableLink && onPlay && (
             <button
               onClick={(e) => {
@@ -206,98 +142,87 @@ const Track = memo(({ track, onPlay, onScrollToTrack }: TrackProps) => {
           )}
         </div>
 
-        {/* Second row - Key info tags (mobile optimized) */}
         <div className="flex flex-wrap gap-1">
           {track.trackLength && (
-            <span className="text-xs px-1.5 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
+            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full border border-gray-200 dark:border-gray-600 flex items-center">
+              <span className="mr-1">⏱️</span>
               {track.trackLength}
             </span>
           )}
           {track.quality && (
-            <span className="text-xs px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-900 text-indigo-700 dark:text-indigo-300 rounded-full">
-              {track.quality.length > 12 ? track.quality.substring(0, 12) + '...' : track.quality}
-            </span>
+            <QualityTag quality={track.quality} />
           )}
-          {track.availableLength && (
-            <span className="text-xs px-1.5 py-0.5 bg-emerald-100 dark:bg-emerald-900 text-emerald-700 dark:text-emerald-300 rounded-full">
+          {!isCompact && track.availableLength && (
+            <span className={`text-xs px-2 py-1 rounded-full border flex items-center ${
+              track.availableLength.toLowerCase().includes('full') 
+                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700'
+                : track.availableLength.toLowerCase().includes('snippet') || track.availableLength.toLowerCase().includes('partial')
+                ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700'
+                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700'
+            }`}>
+              <span className="mr-1">
+                {track.availableLength.toLowerCase().includes('full') ? '✅' : 
+                 track.availableLength.toLowerCase().includes('snippet') || track.availableLength.toLowerCase().includes('partial') ? '⚠️' : '📊'}
+              </span>
               {track.availableLength}
             </span>
           )}
         </div>
 
-        {/* Third row - Credits (collapsed on mobile) */}
-        {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length) && (
-          <div className="flex flex-wrap gap-0.5 sm:gap-1">
-            {track.title?.features?.slice(0, 1).map((feature, index) => (
-              <span key={`feat-${index}`} className="text-xs px-1 py-0.5 bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 rounded">
-                feat. {feature.length > 8 ? feature.substring(0, 8) + '...' : feature}
-              </span>
-            ))}
-            {track.title?.collaborators?.slice(0, 1).map((collab, index) => (
-              <span key={`with-${index}`} className="text-xs px-1 py-0.5 bg-green-100 dark:bg-green-900 text-green-700 dark:text-green-300 rounded">
-                with {collab.length > 6 ? collab.substring(0, 6) + '...' : collab}
-              </span>
-            ))}
-            
-            {/* Show count if there are more credits */}
-            {((track.title?.features?.length || 0) + (track.title?.collaborators?.length || 0) + (track.title?.producers?.length || 0) + (track.title?.references?.length || 0)) > 2 && (
-              <span className="text-xs px-1 py-0.5 bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-400 rounded">
-                +{((track.title?.features?.length || 0) + (track.title?.collaborators?.length || 0) + (track.title?.producers?.length || 0) + (track.title?.references?.length || 0)) - 2} more
-              </span>
+        {!isCompact && (
+          <>
+            {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length) && (
+              <div className="flex flex-wrap gap-1 pt-1">
+                {track.title?.features?.slice(0, 1).map((feature, index) => (
+                  <span key={`feat-${index}`} className="text-xs px-2 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded border border-blue-200 dark:border-blue-700 flex items-center">
+                    <span className="mr-1">🎤</span>
+                    feat. {feature.length > 8 ? feature.substring(0, 8) + '...' : feature}
+                  </span>
+                ))}
+                {track.title?.collaborators?.slice(0, 1).map((collab, index) => (
+                  <span key={`with-${index}`} className="text-xs px-2 py-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded border border-green-200 dark:border-green-700 flex items-center">
+                    <span className="mr-1">🤝</span>
+                    with {collab.length > 6 ? collab.substring(0, 6) + '...' : collab}
+                  </span>
+                ))}
+                {track.title?.producers?.slice(0, 1).map((producer, index) => (
+                  <span key={`prod-${index}`} className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded border border-purple-200 dark:border-purple-700 flex items-center">
+                    <span className="mr-1">🎛️</span>
+                    prod. {producer.length > 6 ? producer.substring(0, 6) + '...' : producer}
+                  </span>
+                ))}
+                {((track.title?.features?.length || 0) + (track.title?.collaborators?.length || 0) + (track.title?.producers?.length || 0) + (track.title?.references?.length || 0)) > 2 && (
+                  <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700/50 text-gray-600 dark:text-gray-400 rounded border border-gray-200 dark:border-gray-600 flex items-center">
+                    <span className="mr-1">➕</span>
+                    {((track.title?.features?.length || 0) + (track.title?.collaborators?.length || 0) + (track.title?.producers?.length || 0) + (track.title?.references?.length || 0)) - 2} more
+                  </span>
+                )}
+              </div>
             )}
-          </div>
-        )}
 
-        {/* Fourth row - Dates (mobile layout) */}
-        <div className="flex flex-wrap gap-1 text-xs">
-          {track.fileDate && (
-            <span className="px-1.5 py-0.5 bg-yellow-100 dark:bg-yellow-900 text-yellow-700 dark:text-yellow-300 rounded-full">
-              File: {track.fileDate}
-            </span>
-          )}
-          {track.leakDate && (
-            <span className="px-1.5 py-0.5 bg-red-100 dark:bg-red-900 text-red-700 dark:text-red-300 rounded-full">
-              Leak: {track.leakDate}
-            </span>
-          )}
-        </div>
+            <div className="flex flex-wrap gap-1 text-xs pt-1">
+              {track.fileDate && (
+                <span className="px-2 py-1 bg-yellow-100 dark:bg-yellow-900/50 text-yellow-700 dark:text-yellow-300 rounded-full border border-yellow-200 dark:border-yellow-700 flex items-center">
+                  <span className="mr-1">📁</span>
+                  File: {track.fileDate}
+                </span>
+              )}
+              {track.leakDate && (
+                <span className="px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded-full border border-red-200 dark:border-red-700 flex items-center">
+                  <span className="mr-1">🔓</span>
+                  Leak: {track.leakDate}
+                </span>
+              )}
+            </div>
 
-        {/* Notes - truncated on mobile */}
-        {track.notes && (
-          <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 sm:line-clamp-2">
-            {track.notes}
-          </p>
-        )}
-
-        {/* Desktop/tablet metadata button */}
-        {isPillowcase && playable?.id && metadataExists === true && (
-          <div className="hidden sm:flex justify-start">
-            <button
-              onClick={(e) => {
-                e.stopPropagation();
-                setIsMetadataModalOpen(true);
-              }}
-              className="px-3 py-1.5 bg-gradient-to-r from-purple-500 to-indigo-600 hover:from-purple-600 hover:to-indigo-700 text-white text-xs rounded transition-all duration-200 hover:scale-105 shadow-sm hover:shadow-md flex items-center space-x-1"
-              title="View track metadata"
-            >
-              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
-              </svg>
-              <span>View Metadata</span>
-            </button>
-          </div>
+            {track.notes && (
+              <p className="text-xs text-gray-600 dark:text-gray-300 line-clamp-1 sm:line-clamp-2 pt-1">
+                {track.notes}
+              </p>
+            )}
+          </>
         )}
       </div>
-
-      {/* Metadata Modal */}
-      {isPillowcase && playable?.id && metadataExists === true && (
-        <MetadataModal
-          isOpen={isMetadataModalOpen}
-          onClose={() => setIsMetadataModalOpen(false)}
-          metadataUrl={`https://api.pillows.su/api/metadata/${playable.id}.txt`}
-          trackName={track?.title?.main || track?.rawName || 'Unknown Track'}
-        />
-      )}
     </div>
   );
 });

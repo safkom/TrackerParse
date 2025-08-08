@@ -26,7 +26,7 @@ export default function StatsDisplay({
   const statsItems = [
     { label: 'OG Files', value: metadata.ogFiles, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900', icon: '🟢', key: 'og' },
     { label: 'Full Files', value: metadata.fullFiles, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900', icon: '🔵', key: 'full' },
-    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900', icon: '🟣', key: 'tagged' },
+    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-900', icon: '🟣', key: 'tagged' },
     { label: 'Partial Files', value: metadata.partialFiles, color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900', icon: '🟡', key: 'partial' },
     { label: 'Snippet Files', value: metadata.snippetFiles, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900', icon: '🟠', key: 'snippet' },
     { label: 'Stem Bounce Files', value: metadata.stemBounceFiles, color: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-900', icon: '🟤', key: 'stem' },
@@ -102,7 +102,7 @@ export function ExpandedStatsDisplay({
   const statsItems = [
     { label: 'OG Files', value: metadata.ogFiles, color: 'text-green-600 dark:text-green-400', bgColor: 'bg-green-100 dark:bg-green-900', icon: '🟢', key: 'og' },
     { label: 'Full Files', value: metadata.fullFiles, color: 'text-blue-600 dark:text-blue-400', bgColor: 'bg-blue-100 dark:bg-blue-900', icon: '🔵', key: 'full' },
-    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-purple-600 dark:text-purple-400', bgColor: 'bg-purple-100 dark:bg-purple-900', icon: '🟣', key: 'tagged' },
+    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-900', icon: '🟣', key: 'tagged' },
     { label: 'Partial Files', value: metadata.partialFiles, color: 'text-yellow-600 dark:text-yellow-400', bgColor: 'bg-yellow-100 dark:bg-yellow-900', icon: '🟡', key: 'partial' },
     { label: 'Snippet Files', value: metadata.snippetFiles, color: 'text-orange-600 dark:text-orange-400', bgColor: 'bg-orange-100 dark:bg-orange-900', icon: '🟠', key: 'snippet' },
     { label: 'Stem Bounce Files', value: metadata.stemBounceFiles, color: 'text-indigo-600 dark:text-indigo-400', bgColor: 'bg-indigo-100 dark:bg-indigo-900', icon: '🟤', key: 'stem' },

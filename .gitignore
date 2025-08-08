@@ -26,6 +26,9 @@ yarn-error.log*
 
 # local env files
 .env*.local
+.env.example
+.env.production
+.env.development
 
 # vercel
 .vercel
@@ -36,3 +39,7 @@ next-env.d.ts
 
 # cache directory
 /cache
+
+# logs
+/logs
+*.log

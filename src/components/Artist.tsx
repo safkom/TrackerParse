@@ -21,6 +21,7 @@ interface ArtistProps {
 const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, sourceUrl, sheetType }: ArtistProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
+  const [visibleAlbumsCount, setVisibleAlbumsCount] = useState(5); // Start with 5 albums
   const searchInputRef = useRef<HTMLInputElement>(null);
 
   // Handle scrolling to a specific track
@@ -38,11 +39,13 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
     onTrackInfo?.(track);
   }, [onTrackInfo]);
 
-    // Debounce search query to improve performance
+  // Optimized debounce with reduced delay for better responsiveness
   useEffect(() => {
     const timer = setTimeout(() => {
-      setDebouncedSearchQuery(searchQuery);
-    }, 200); // Reduced from 500ms to 200ms for faster response
+      startTransition(() => {
+        setDebouncedSearchQuery(searchQuery);
+      });
+    }, 150); // Reduced from 200ms to 150ms for faster response
 
     return () => clearTimeout(timer);
   }, [searchQuery]);
@@ -60,6 +63,48 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
   // Emergency brake for massive datasets - limit search results
   const MAX_SEARCH_RESULTS = 500;
   const MAX_ALL_TRACKS = 1000;
+  const ALBUMS_PER_BATCH = 5; // Load 5 albums at a time
+
+  // Progressive loading for albums
+  const loadMoreAlbums = useCallback(() => {
+    startTransition(() => {
+      setVisibleAlbumsCount(prev => prev + ALBUMS_PER_BATCH);
+    });
+  }, []);
+
+  // Reset visible count when sheet type or search changes
+  useEffect(() => {
+    setVisibleAlbumsCount(5);
+  }, [sheetType, debouncedSearchQuery]);
+
+  // Auto-load more albums when scrolling near bottom
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollHeight = document.documentElement.scrollHeight;
+      const scrollTop = document.documentElement.scrollTop;
+      const clientHeight = window.innerHeight;
+      
+      // Load more when 80% scrolled
+      if (scrollTop + clientHeight >= scrollHeight * 0.8) {
+        loadMoreAlbums();
+      }
+    };
+
+    // Throttle scroll events
+    let ticking = false;
+    const throttledScroll = () => {
+      if (!ticking) {
+        requestAnimationFrame(() => {
+          handleScroll();
+          ticking = false;
+        });
+        ticking = true;
+      }
+    };
+
+    window.addEventListener('scroll', throttledScroll);
+    return () => window.removeEventListener('scroll', throttledScroll);
+  }, [loadMoreAlbums]);
 
   // Keyboard shortcut for search (Ctrl/Cmd + K)
   useEffect(() => {
@@ -82,28 +127,47 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [searchQuery]);
 
+  // Memoize albums to prevent unnecessary re-processing when reference changes but content is same
+  const stableAlbums = useMemo(() => {
+    return artist.albums;
+  }, [artist.albums]);
+
   // Filter albums and tracks based on debounced search query and sheet type
+  // Optimized with better caching and reduced complexity
   const filteredAlbums = useMemo(() => {
-    console.log('🔄 Processing albums for sheet type:', sheetType, 'Search:', !!debouncedSearchQuery.trim());
+    // Only log processing when we have albums with tracks to avoid spam
+    const hasAnyTracks = stableAlbums.some(album => album.tracks.length > 0);
+    if (hasAnyTracks) {
+      console.log('🔄 Processing albums for sheet type:', sheetType, 'Search:', !!debouncedSearchQuery.trim());
+      console.log('📊 Initial album count:', stableAlbums.length);
+    }
     
-    let albumsToFilter = artist.albums;
+    let albumsToFilter = stableAlbums;
 
     // Apply sheet type filtering first (only when not searching)
     if (!debouncedSearchQuery.trim()) {
       if (sheetType === 'best') {
-        albumsToFilter = artist.albums.map(album => ({
+        albumsToFilter = stableAlbums.map(album => ({
           ...album,
           tracks: album.tracks.filter(track => {
-            // Filter for best tracks - tracks marked as special or high quality
+            // Simplified filter for best tracks - avoid excessive includes calls
+            const quality = track.quality?.toLowerCase() || '';
             return track.isSpecial || 
-                   track.quality?.toLowerCase().includes('og') ||
-                   track.quality?.toLowerCase().includes('full') ||
-                   track.quality?.toLowerCase().includes('lossless') ||
-                   track.quality?.toLowerCase().includes('cd quality');
+                   quality.includes('og') ||
+                   quality.includes('full') ||
+                   quality.includes('lossless') ||
+                   quality.includes('cd quality');
           })
         })).filter(album => album.tracks.length > 0);
       } else if (sheetType === 'recent') {
-        return []; // Use allTracks instead for recent view
+        albumsToFilter = []; // Use allTracks instead for recent view
+      }
+      
+      if (hasAnyTracks) {
+        console.log('📈 Albums after sheet type filter:', albumsToFilter.length);
+        albumsToFilter.forEach(album => {
+          console.log(`  - ${album.name}: ${album.tracks.length} tracks`);
+        });
       }
       
       return albumsToFilter;
@@ -111,22 +175,25 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
 
     const query = debouncedSearchQuery.toLowerCase();
     
-    return artist.albums.map(album => {
+    const searchResults = artist.albums.map(album => {
       const filteredTracks = album.tracks.filter(track => {
-        // Skip tracks without proper data
+        // Skip tracks without proper data - early exit for performance
         if (!track || (!track.title?.main && !track.rawName)) {
           return false;
         }
 
-        // Search in track title main name
-        const titleMatch = track.title?.main?.toLowerCase().includes(query) || false;
+        // Primary search in main title and raw name (most common case)
+        const titleMain = track.title?.main?.toLowerCase() || '';
+        const rawName = track.rawName?.toLowerCase() || '';
+        
+        if (titleMain.includes(query) || rawName.includes(query)) {
+          return true;
+        }
 
-        // Search in alternate names
-        const alternateNamesMatch = track.title?.alternateNames?.some(name =>
+        // Secondary search in alternate names (only if primary didn't match)
+        return track.title?.alternateNames?.some(name =>
           name?.toLowerCase().includes(query)
         ) || false;
-
-        return titleMatch || alternateNamesMatch;
       });
 
       // Return album only if it has matching tracks
@@ -138,8 +205,11 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
       }
 
       return null;
-    }).filter(album => album !== null);
-  }, [artist.albums, debouncedSearchQuery, sheetType]);
+    }).filter((album): album is NonNullable<typeof album> => album !== null);
+    
+    console.log('🔍 Search results:', searchResults.length, 'albums with matching tracks');
+    return searchResults;
+  }, [stableAlbums, debouncedSearchQuery, sheetType, artist.albums]);
 
   // Flat list of all matching tracks for search display (no era grouping)
   const searchTracks = useMemo(() => {
@@ -152,7 +222,7 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
     let resultCount = 0;
     
     // Search through albums efficiently and stop early if we hit the limit
-    for (const album of artist.albums) {
+    for (const album of stableAlbums) {
       if (resultCount >= MAX_SEARCH_RESULTS) break;
       
       for (const track of album.tracks) {
@@ -185,7 +255,7 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
     return allTracks.sort((a, b) => 
       (a.title?.main || a.rawName || '').localeCompare(b.title?.main || b.rawName || '')
     );
-  }, [artist.albums, debouncedSearchQuery]);
+  }, [stableAlbums, debouncedSearchQuery]);
 
   // Flat list of all tracks for recent view (no era grouping) - LIMITED for performance
   const allTracks = useMemo(() => {
@@ -196,7 +266,7 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
     const allTracks: (Track & { albumName: string })[] = [];
     let trackCount = 0;
     
-    for (const album of artist.albums) {
+    for (const album of stableAlbums) {
       if (trackCount >= MAX_ALL_TRACKS) break;
       
       for (const track of album.tracks) {
@@ -231,7 +301,7 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
       const dateB = new Date(b.leakDate || b.fileDate || 0);
       return dateB.getTime() - dateA.getTime();
     });
-  }, [artist.albums, sheetType]);
+  }, [stableAlbums, sheetType]);
 
   const totalFilteredTracks = filteredAlbums.reduce((total, album) => total + album.tracks.length, 0);
   return (
@@ -356,7 +426,7 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
                 maxHeight={600}
               />
             ) : (
-              <TrackList tracks={searchTracks} onPlay={onPlayTrack} onTrackInfo={handleTrackInfo} />
+              <TrackList tracks={searchTracks} onPlay={onPlayTrack} onTrackInfo={handleTrackInfo} onScrollToTrack={handleScrollToTrack} />
             )}
           </div>
         ) : (
@@ -407,8 +477,8 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
               tracks={allTracks} 
               onPlay={onPlayTrack} 
               onTrackInfo={handleTrackInfo}
-              disableVirtualization={allTracks.length <= 100} // Only virtualize if more than 100 tracks
-              maxHeight={allTracks.length <= 100 ? undefined : 600}
+              disableVirtualization={true} // Always disable virtualization for recent view to allow full height
+              maxHeight={undefined} // No height restriction for recent view
             />
           </div>
         ) : (
@@ -425,28 +495,55 @@ const Artist = memo(function Artist({ artist, onPlayTrack, onTrackInfo, docId, s
         filteredAlbums.length > 0 ? (
           sheetType === 'unreleased' ? (
             <div className="space-y-4 sm:space-y-6">
-              {filteredAlbums.map((album, index) => (
+              {filteredAlbums.slice(0, visibleAlbumsCount).map((album, index) => (
                 <LazyEra
-                  key={album.id || `album-${index}`} 
+                  key={album.id || `album-${index}`}
                   era={album}
                   docId={docId}
                   onPlay={onPlayTrack}
+                  onTrackInfo={onTrackInfo}
                   onScrollToTrack={handleScrollToTrack}
                   isSearchActive={!!debouncedSearchQuery.trim()}
+                  sheetType={sheetType}
                 />
               ))}
+              
+              {/* Load More Button */}
+              {visibleAlbumsCount < filteredAlbums.length && (
+                <div className="text-center py-6">
+                  <button
+                    onClick={loadMoreAlbums}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm hover:shadow-md"
+                  >
+                    Load More Albums ({filteredAlbums.length - visibleAlbumsCount} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
             <div className="space-y-4 sm:space-y-6">
-              {filteredAlbums.map((album, index) => (
+              {filteredAlbums.slice(0, visibleAlbumsCount).map((album, index) => (
                 <Album 
-                  key={album.id || `album-${index}`} 
+                  key={album.id || `album-${index}`}
                   album={album} 
                   onPlay={onPlayTrack}
+                  onTrackInfo={onTrackInfo}
                   onScrollToTrack={handleScrollToTrack}
                   isSearchActive={!!debouncedSearchQuery.trim()}
                 />
               ))}
+              
+              {/* Load More Button */}
+              {visibleAlbumsCount < filteredAlbums.length && (
+                <div className="text-center py-6">
+                  <button
+                    onClick={loadMoreAlbums}
+                    className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors font-medium shadow-sm hover:shadow-md"
+                  >
+                    Load More Albums ({filteredAlbums.length - visibleAlbumsCount} remaining)
+                  </button>
+                </div>
+              )}
             </div>
           )
         ) : (

@@ -8,67 +8,68 @@ interface QualityTagProps {
 
 const QualityTag: React.FC<QualityTagProps> = ({ quality }) => {
   const getQualityInfo = (quality: string) => {
-    const lowerQuality = quality.toLowerCase();
+    const normalizedQuality = quality.toLowerCase().trim();
     
-    // Not available/unavailable tracks
-    if (lowerQuality.includes('not available') || lowerQuality.includes('unavailable')) {
+    // Map to official tracker quality categories
+    // Lossless (highest quality)
+    if (normalizedQuality.includes('lossless') || normalizedQuality.includes('flac') || normalizedQuality.includes('wav')) {
+      return {
+        classes: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border border-purple-200 dark:border-purple-700',
+        icon: '💎',
+        label: 'Lossless'
+      };
+    }
+    
+    // CD Quality
+    if (normalizedQuality.includes('cd quality') || normalizedQuality.includes('cdq') || normalizedQuality.includes('320')) {
+      return {
+        classes: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-700',
+        icon: '�',
+        label: 'CD Quality'
+      };
+    }
+    
+    // High Quality
+    if (normalizedQuality.includes('high quality') || normalizedQuality.includes('hq') || normalizedQuality.includes('256')) {
+      return {
+        classes: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-700',
+        icon: '�',
+        label: 'High Quality'
+      };
+    }
+    
+    // Low Quality
+    if (normalizedQuality.includes('low quality') || normalizedQuality.includes('lq') || normalizedQuality.includes('128')) {
+      return {
+        classes: 'bg-orange-100 text-orange-700 dark:bg-orange-900/50 dark:text-orange-300 border border-orange-200 dark:border-orange-700',
+        icon: '📻',
+        label: 'Low Quality'
+      };
+    }
+    
+    // Recordings (live recordings, phone recordings, etc.)
+    if (normalizedQuality.includes('recording') || normalizedQuality.includes('live') || normalizedQuality.includes('phone')) {
+      return {
+        classes: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700',
+        icon: '�',
+        label: 'Recording'
+      };
+    }
+    
+    // Not Available
+    if (normalizedQuality.includes('not available') || normalizedQuality.includes('unavailable')) {
       return {
         classes: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400 border border-gray-300 dark:border-gray-600',
         icon: '❌',
-        label: 'Unavailable'
+        label: 'Not Available'
       };
     }
     
-    // Snippet/Low Quality
-    if (lowerQuality.includes('lq') || lowerQuality.includes('snippet')) {
-      return {
-        classes: 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300 border border-red-200 dark:border-red-700',
-        icon: '📱',
-        label: quality
-      };
-    }
-    
-    // Medium Quality
-    if (lowerQuality.includes('mq') || lowerQuality.includes('medium')) {
-      return {
-        classes: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/50 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700',
-        icon: '🎵',
-        label: quality
-      };
-    }
-    
-    // High Quality/CDQ
-    if (lowerQuality.includes('hq') || lowerQuality.includes('cdq') || lowerQuality.includes('320')) {
-      return {
-        classes: 'bg-green-100 text-green-700 dark:bg-green-900/50 dark:text-green-300 border border-green-200 dark:border-green-700',
-        icon: '🎧',
-        label: quality
-      };
-    }
-    
-    // Lossless/FLAC
-    if (lowerQuality.includes('lossless') || lowerQuality.includes('flac')) {
-      return {
-        classes: 'bg-blue-100 text-blue-700 dark:bg-blue-900/50 dark:text-blue-300 border border-blue-200 dark:border-blue-700',
-        icon: '💎',
-        label: quality
-      };
-    }
-    
-    // Original/OG
-    if (lowerQuality.includes('og') || lowerQuality.includes('original')) {
-      return {
-        classes: 'bg-purple-100 text-purple-700 dark:bg-purple-900/50 dark:text-purple-300 border border-purple-200 dark:border-purple-700',
-        icon: '👑',
-        label: quality
-      };
-    }
-    
-    // Default
+    // Default for unknown quality
     return {
       classes: 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-300 border border-gray-200 dark:border-gray-600',
-      icon: '🎶',
-      label: quality
+      icon: '❓',
+      label: quality || 'Unknown'
     };
   };
 

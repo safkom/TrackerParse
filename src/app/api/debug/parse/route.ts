@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
     const debugInfo = {
       artist: result.name,
       albumCount: result.albums.length,
-      totalTracks: result.albums.reduce((sum: number, album: any) => sum + album.tracks.length, 0),
+      totalTracks: result.albums.reduce((sum: number, album: { tracks: unknown[] }) => sum + album.tracks.length, 0),
       lastUpdated: result.lastUpdated
     };
 

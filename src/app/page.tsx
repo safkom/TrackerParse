@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback, startTransition, useDeferredValue } from 'react';
 import { useRouter } from 'next/navigation';
 import GoogleDocsForm from '@/components/GoogleDocsForm';
-import Artist from '@/components/Artist';
+import ModernArtist from '@/components/ModernArtist';
 import MusicPlayer from '@/components/MusicPlayer';
 import SheetNavigation, { SheetType } from '@/components/SheetNavigation';
 import { Artist as ArtistType, ParsedSpreadsheetData, Track } from '@/types';
@@ -237,13 +237,11 @@ export default function Home() {
           )}
           {/* Artist Display */}
           {deferredArtist && (
-            <Artist 
+            <ModernArtist 
               artist={deferredArtist} 
               onPlayTrack={handlePlayTrack}
               onTrackInfo={handlePlayTrack} // Use same handler for track info for now
-              docId={currentDocId}
-              sourceUrl={currentUrl || ''}
-              sheetType={currentSheetType}
+              currentTrack={currentTrack}
             />
           )}
         </div>

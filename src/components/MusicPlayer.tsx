@@ -196,14 +196,29 @@ export default function MusicPlayer({ track, isVisible, onClose, onInfo }: Music
   if (!isVisible || !track) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-t border-gray-200 dark:border-gray-700 shadow-lg z-40 pb-safe">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2 sm:py-4">
+    <div 
+      className="fixed bottom-0 left-0 right-0 bg-white dark:bg-gray-900 border-t border-gray-200 dark:border-gray-700 shadow-xl music-player-mobile"
+      style={{
+        position: 'fixed',
+        bottom: '0',
+        left: '0',
+        right: '0',
+        zIndex: 9999,
+        paddingBottom: 'env(safe-area-inset-bottom, 0px)',
+        minHeight: '80px',
+        overscrollBehavior: 'contain',
+        contain: 'layout style',
+        transform: 'translateZ(0)',
+        willChange: 'transform'
+      }}
+    >
+      <div className="max-w-7xl mx-auto px-3 py-3 md:px-4 md:py-4">
         <div className="flex flex-col space-y-2 sm:space-y-3">
           {/* Track Info and Controls Row */}
           <div className="grid grid-cols-[1fr_auto_auto] items-center gap-2">
             {/* Track Info - Left */}
             <div className="flex items-center space-x-2 sm:space-x-3 min-w-0">
-              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-purple-600 rounded-lg flex items-center justify-center flex-shrink-0">
+              <div className="w-10 h-10 sm:w-14 sm:h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 sm:w-7 sm:h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M18 3a1 1 0 00-1.196-.98l-10 2A1 1 0 006 5v9.114A4.369 4.369 0 005 14c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V7.82l8-1.6v5.894A4.37 4.37 0 0015 12c-1.657 0-3 .895-3 2s1.343 2 3 2 3-.895 3-2V3z" clipRule="evenodd" />
                 </svg>

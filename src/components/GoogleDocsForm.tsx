@@ -32,7 +32,7 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
             </svg>
           </div>
           <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-400 to-purple-400 bg-clip-text text-transparent mb-3">
-            TrackerHub
+            TrackerParse
           </h1>
           <p className="text-slate-300 mb-4 text-lg">
             TrackerParse is an ad-free service that allows you to listen to audio from Google Sheets.
@@ -43,21 +43,6 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Debug Theme Reset Button */}
-          <div className="text-center">
-            <button
-              type="button"
-              onClick={() => {
-                localStorage.setItem('theme', 'light');
-                document.documentElement.classList.remove('dark');
-                window.location.reload();
-              }}
-              className="text-xs px-3 py-1 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-            >
-              Force Light Mode
-            </button>
-          </div>
-          
           <div>
             <label htmlFor="google-docs-url" className="block text-sm font-medium text-slate-200 mb-2">
               Google Docs Spreadsheet URL
@@ -106,6 +91,16 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
               Beep Tracker
             </button>
           </p>
+          <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+            TrackerHub links are available in the {' '}
+            <button
+              type="button"
+              onClick={() => setUrl('https://discord.gg/trackerhub')}
+              className="text-blue-600 dark:text-blue-400 hover:text-blue-800 dark:hover:text-blue-300 underline transition-colors"
+            >
+            TrackerHub Discord server
+            </button>
+          </p>
         </div>
 
         <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
@@ -116,9 +111,7 @@ export default function GoogleDocsForm({ onSubmit, loading }: GoogleDocsFormProp
           <div className="text-xs text-gray-500 dark:text-gray-400 grid grid-cols-2 gap-1">
             <span>• Era</span>
             <span>• Name</span>
-            <span>• Link to google doc</span>
             <span>• Notes</span>
-            <span>• Discord link</span>
             <span>• Track Length</span>
             <span>• File Date</span>
             <span>• Leak Date</span>

@@ -6,10 +6,11 @@ import Track from './Track';
 interface TrackListProps {
   tracks: (TrackType & { albumName?: string })[];
   onPlay?: (track: TrackType) => void;
+  onTrackInfo?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
 }
 
-export default function TrackList({ tracks, onPlay, onScrollToTrack }: TrackListProps) {
+export default function TrackList({ tracks, onPlay, onTrackInfo, onScrollToTrack }: TrackListProps) {
   if (!tracks || tracks.length === 0) {
     return (
       <div className="text-center py-16">
@@ -26,6 +27,7 @@ export default function TrackList({ tracks, onPlay, onScrollToTrack }: TrackList
           key={track.id || index} 
           track={track} 
           onPlay={onPlay} 
+          onTrackInfo={onTrackInfo}
           onScrollToTrack={onScrollToTrack} 
         />
       ))}

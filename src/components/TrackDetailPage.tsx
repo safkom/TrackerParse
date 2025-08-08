@@ -3,20 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Track as TrackType } from '@/types';
 import MusicPlayer from './MusicPlayer';
-import InfoCard from './InfoCard';
-import QualityTag from './QualityTag';
-import {
-  ClockIcon,
-  CalendarIcon,
-  TagIcon,
-  MusicalNoteIcon,
-  SparklesIcon,
-  TrophyIcon,
-  UserGroupIcon,
-  LinkIcon,
-  PlayCircleIcon,
-  InformationCircleIcon,
-} from '@heroicons/react/24/outline';
 
 interface TrackDetailPageProps {
   track: TrackType;
@@ -27,6 +13,60 @@ interface TrackDetailPageProps {
 export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailPageProps) {
   const [currentTrack, setCurrentTrack] = useState<TrackType | null>(null);
   const [showMusicPlayer, setShowMusicPlayer] = useState(false);
+
+  // Improved body scroll management for mobile
+  useEffect(() => {
+    // Store original values
+    const originalBodyStyle = {
+      overflow: document.body.style.overflow,
+      position: document.body.style.position,
+      top: document.body.style.top,
+      left: document.body.style.left,
+      right: document.body.style.right,
+      width: document.body.style.width,
+      height: document.body.style.height
+    };
+    
+    const originalDocumentStyle = {
+      overflow: document.documentElement.style.overflow
+    };
+    
+    // Get current scroll position
+    const scrollY = window.scrollY;
+    const scrollX = window.scrollX;
+    
+    // Apply mobile-friendly scroll lock
+    document.body.style.overflow = 'hidden';
+    document.body.style.position = 'fixed';
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.left = `-${scrollX}px`;
+    document.body.style.right = '0';
+    document.body.style.width = '100vw';
+    document.body.style.height = '100vh';
+    document.documentElement.style.overflow = 'hidden';
+    
+    // Restore everything on cleanup
+    return () => {
+      // Restore styles
+      Object.assign(document.body.style, originalBodyStyle);
+      Object.assign(document.documentElement.style, originalDocumentStyle);
+      
+      // Restore scroll position
+      window.scrollTo(scrollX, scrollY);
+    };
+  }, []);
+
+  // Handle escape key
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [onClose]);
 
   // Enhanced: Find playable link and type
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
@@ -50,327 +90,264 @@ export default function TrackDetailPage({ track, onClose, onPlay }: TrackDetailP
         const downloadUrl = url.endsWith('/') ? `${url}download` : `${url}/download`;
         return { type: 'froste', url: downloadUrl };
       }
+      
+      // YouTube
+      if (url.match(/(youtube\.com|youtu\.be)/i)) {
+        return { type: 'youtube', url };
+      }
+      
+      // SoundCloud
+      if (url.includes('soundcloud.com')) {
+        return { type: 'soundcloud', url };
+      }
+      
+      // Direct audio
+      if (url.match(/\.(mp3|wav|m4a|aac|ogg|flac)$/i)) {
+        return { type: 'audio', url };
+      }
     }
-    return null;
+    // Fallback: first link
+    return { type: 'other', url: track.links[0].url };
   };
 
   const playable = getPlayableSource(track);
-  const isPillowcase = playable?.type === 'pillowcase';
-  
-  // Check if track is not available
-  const isNotAvailable = track.quality?.toLowerCase().includes('not available') || 
-                         track.availableLength?.toLowerCase().includes('not available') ||
-                         track.quality?.toLowerCase().includes('unavailable') ||
-                         track.availableLength?.toLowerCase().includes('unavailable');
-  
-  const hasPlayableLink = playable !== null && !isNotAvailable;
+  const hasPlayableLink = !!playable;
 
-  const handlePlayTrack = () => {
-    if (hasPlayableLink) {
-      if (onPlay) {
-        // Use the parent's player instead of creating our own
-        onPlay(track);
-      } else {
-        // Only set our own player if no parent player is available
-        setCurrentTrack(track);
-        setShowMusicPlayer(true);
-      }
+  const handlePlay = () => {
+    if (onPlay) {
+      onPlay(track);
+    } else {
+      setCurrentTrack(track);
+      setShowMusicPlayer(true);
     }
   };
 
-  // Handle escape key to close
-  useEffect(() => {
-    const handleEscape = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') {
-        onClose();
-      }
-    };
-
-    // Prevent body scroll when modal is open
-    document.body.style.overflow = 'hidden';
-    document.addEventListener('keydown', handleEscape);
-    
-    return () => {
-      document.removeEventListener('keydown', handleEscape);
-      document.body.style.overflow = 'unset';
-    };
-  }, [onClose]);
-
-  // Find similar tracks (same main title)
-  const getSimilarNames = () => {
-    const names = [];
-    if (track.title?.main && track.title.main !== track.rawName) {
-      names.push(track.title.main);
-    }
-    if (track.title?.alternateNames) {
-      names.push(...track.title.alternateNames);
-    }
-    if (track.rawName && !names.includes(track.rawName)) {
-      names.push(track.rawName);
-    }
-    return names;
+  const handleCloseMusicPlayer = () => {
+    setShowMusicPlayer(false);
+    setCurrentTrack(null);
   };
 
-  const formatDate = (dateStr: string) => {
-    if (!dateStr || dateStr === '0' || dateStr === 'Unknown 0') return 'Unknown';
-    if (dateStr.includes('?')) return 'Unknown';
-    if (dateStr.toLowerCase() === 'unknown') return 'Unknown';
-    return dateStr;
+  const handleBackdropClick = (e: React.MouseEvent) => {
+    // Only close on direct backdrop click, not on mobile touch events that might be scroll gestures
+    if (e.target === e.currentTarget && e.detail !== 0) {
+      onClose();
+    }
+  };
+
+  const InfoItem = ({ icon, title, children }: { icon: string; title: string; children: React.ReactNode }) => (
+    <div className="bg-gray-50 dark:bg-gray-800/50 rounded-xl p-4">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-lg">{icon}</span>
+        <h3 className="font-semibold text-gray-900 dark:text-white">{title}</h3>
+      </div>
+      <div className="text-gray-700 dark:text-gray-300">{children}</div>
+    </div>
+  );
+
+  const QualityBadge = ({ quality }: { quality: string }) => {
+    const getQualityColor = (quality: string) => {
+      const q = quality.toLowerCase();
+      if (q.includes('og') || q.includes('original')) return 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300';
+      if (q.includes('cd') || q.includes('lossless')) return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300';
+      if (q.includes('high')) return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300';
+      if (q.includes('low') || q.includes('poor')) return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300';
+      if (q.includes('unavailable') || q.includes('not available')) return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+      return 'bg-gray-100 text-gray-800 dark:bg-gray-900/30 dark:text-gray-300';
+    };
+
+    return (
+      <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getQualityColor(quality)}`}>
+        {quality}
+      </span>
+    );
   };
 
   return (
-    <div
-      className="fixed inset-0 bg-black/70 backdrop-blur-md overflow-y-auto p-2 sm:p-4 z-50 flex justify-center items-start"
-      onClick={(e) => {
-        // Close when clicking the backdrop
-        if (e.target === e.currentTarget) {
-          onClose();
-        }
-      }}
-    >
-      <div
-        className="bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm rounded-2xl w-full max-w-xs sm:max-w-4xl shadow-2xl border border-purple-200/50 dark:border-purple-700/50 overflow-hidden mt-4 mb-4"
-        onClick={(e) => e.stopPropagation()}
+    <>
+      {/* Mobile-optimized Modal Overlay */}
+      <div 
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 touch-none"
+        onClick={handleBackdropClick}
+        style={{
+          WebkitUserSelect: 'none',
+          WebkitTouchCallout: 'none',
+          WebkitTapHighlightColor: 'transparent'
+        }}
       >
-        {/* Header */}
-        <div className="sticky top-0 bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm border-b border-purple-200/30 dark:border-purple-700/30 p-4 sm:p-6 flex items-center justify-between z-10">
-          <div className="flex items-center gap-3 flex-1 pr-4">
-            <h1 className="text-lg sm:text-2xl font-bold text-gray-900 dark:text-white truncate">
-              {track.title?.main || track.rawName}
-            </h1>
-            {/* Special indicators in header */}
-            {track.isSpecial && track.specialType && (
-              <span className="text-xl animate-pulse" title="Special Track">
-                {track.specialType}
-              </span>
-            )}
-            {track.isWanted && track.wantedType && (
-              <span className="text-xl animate-bounce" title="Wanted Track">
-                {track.wantedType}
-              </span>
-            )}
-          </div>
-          <button
-            onClick={onClose}
-            className="p-2 rounded-xl hover:bg-purple-100 dark:hover:bg-purple-900/30 transition-colors group"
-          >
-            <svg className="w-6 h-6 text-gray-600 dark:text-gray-400 group-hover:text-purple-600 dark:group-hover:text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Scrollable Content */}
-        <div className="overflow-y-auto max-h-[calc(100vh-8rem)]">
-          <div className="p-6">
-            {/* Track Info Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
-              <InfoCard icon={<MusicalNoteIcon className="w-6 h-6" />} title="Era">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-blue-100 text-blue-800 dark:bg-blue-900/50 dark:text-blue-200 border border-blue-200 dark:border-blue-700">
-                  <span className="mr-2">🎭</span>
+        {/* Mobile-optimized Modal Content */}
+        <div 
+          className="fixed inset-0 bg-white dark:bg-gray-900 md:inset-4 md:top-16 md:rounded-2xl md:max-w-4xl md:mx-auto md:my-auto md:h-fit md:max-h-[90vh] shadow-2xl overflow-hidden"
+          onClick={(e) => e.stopPropagation()}
+          style={{
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehavior: 'contain'
+          }}
+        >
+          {/* Header - Now with better mobile spacing */}
+          <div className="sticky top-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-b border-gray-200 dark:border-gray-700 px-4 py-3 md:px-6 md:py-4 z-10">
+            <div className="flex items-center justify-between">
+              <div className="flex-1 min-w-0 pr-3">
+                <h1 className="text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate">
+                  {track.title?.main || track.rawName}
+                </h1>
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {track.era}
-                </span>
-              </InfoCard>
-              <InfoCard icon={<ClockIcon className="w-6 h-6" />} title="Length">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-200 border border-gray-200 dark:border-gray-600">
-                  <span className="mr-2">⏱️</span>
-                  {track.trackLength || 'Unknown'}
-                </span>
-              </InfoCard>
-              <InfoCard icon={<TagIcon className="w-6 h-6" />} title="Quality">
-                <QualityTag quality={track.quality || 'Unknown'} />
-              </InfoCard>
-              <InfoCard icon={<CalendarIcon className="w-6 h-6" />} title="File Date">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 border border-yellow-200 dark:border-yellow-700">
-                  <span className="mr-2">📁</span>
-                  {formatDate(track.fileDate)}
-                </span>
-              </InfoCard>
-              <InfoCard icon={<CalendarIcon className="w-6 h-6" />} title="Leak Date">
-                <span className="inline-flex items-center px-3 py-1 rounded-full text-sm font-medium bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-200 border border-red-200 dark:border-red-700">
-                  <span className="mr-2">🔓</span>
-                  {formatDate(track.leakDate)}
-                </span>
-              </InfoCard>
-              
-              {track.isSpecial && track.specialType && (
-                <InfoCard 
-                  icon={track.specialType === '🏆' ? <TrophyIcon className="w-6 h-6" /> : <SparklesIcon className="w-6 h-6" />} 
-                  title="Special Status"
-                >
-                  <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium border ${
-                    track.specialType === '⭐' ? 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/50 dark:text-yellow-200 border-yellow-200 dark:border-yellow-700' :
-                    track.specialType === '✨' ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/50 dark:text-purple-200 border-purple-200 dark:border-purple-700' :
-                    'bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-200 border-green-200 dark:border-green-700'
-                  }`}>
-                    <span className="mr-2">{track.specialType}</span>
-                    {track.specialType === '⭐' ? 'Best Of' :
-                     track.specialType === '✨' ? 'Special' :
-                     'Wanted'}
-                  </span>
-                </InfoCard>
-              )}
-            </div>
-
-            {/* Credits */}
-            {(track.title?.features?.length || track.title?.collaborators?.length || track.title?.producers?.length) && (
-              <InfoCard icon={<UserGroupIcon className="w-6 h-6" />} title="Credits" className="mb-8">
-                <div className="space-y-3">
-                  {track.title?.features?.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                        <span className="mr-2">🎤</span>
-                        Featured Artists
-                      </h5>
-                      <div className="flex flex-wrap gap-2">
-                        {track.title.features.map((feature, index) => (
-                          <span key={index} className="text-sm px-3 py-1 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-full border border-blue-200 dark:border-blue-700">
-                            {feature}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {track.title?.collaborators?.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                        <span className="mr-2">🤝</span>
-                        Collaborators
-                      </h5>
-                      <div className="flex flex-wrap gap-2">
-                        {track.title.collaborators.map((collab, index) => (
-                          <span key={index} className="text-sm px-3 py-1 bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 rounded-full border border-green-200 dark:border-green-700">
-                            {collab}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                  {track.title?.producers?.length > 0 && (
-                    <div>
-                      <h5 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2 flex items-center">
-                        <span className="mr-2">🎛️</span>
-                        Producers
-                      </h5>
-                      <div className="flex flex-wrap gap-2">
-                        {track.title.producers.map((producer, index) => (
-                          <span key={index} className="text-sm px-3 py-1 bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300 rounded-full border border-purple-200 dark:border-purple-700">
-                            {producer}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </InfoCard>
-            )}
-
-            {/* Description/Notes */}
-            {track.notes && (
-              <InfoCard icon={<InformationCircleIcon className="w-6 h-6" />} title="Notes & Description" className="mb-8">
-                <p className="text-sm text-gray-700 dark:text-gray-300 whitespace-pre-wrap">
-                  {track.notes}
                 </p>
-              </InfoCard>
-            )}
+              </div>
+              <button
+                onClick={onClose}
+                className="ml-2 w-11 h-11 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center hover:bg-gray-200 dark:hover:bg-gray-700 active:bg-gray-300 dark:active:bg-gray-600 transition-colors touch-manipulation flex-shrink-0"
+                aria-label="Close"
+                style={{
+                  WebkitTapHighlightColor: 'transparent'
+                }}
+              >
+                <svg className="w-5 h-5 text-gray-600 dark:text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+          </div>
 
-            {/* Action Buttons */}
-            <div className="flex flex-wrap gap-3 mb-8">
+          {/* Scrollable Content with improved mobile handling */}
+          <div 
+            className="overflow-y-auto overscroll-contain h-full md:max-h-[calc(90vh-88px)]" 
+            style={{ 
+              WebkitOverflowScrolling: 'touch',
+              overscrollBehavior: 'contain',
+              scrollbarWidth: 'thin'
+            }}
+          >
+            <div className="p-4 md:p-6 space-y-6 pb-6 md:pb-6 min-h-[50vh]">{/* Ensure minimum height for proper scrolling */}
+              {/* Play Button */}
               {hasPlayableLink && (
-                <button
-                  onClick={handlePlayTrack}
-                  className="flex items-center space-x-2 px-6 py-3 bg-gradient-to-r from-green-500 to-blue-500 hover:from-green-600 hover:to-blue-600 text-white rounded-lg transition-all duration-200 hover:scale-105 shadow-lg"
-                >
-                  <PlayCircleIcon className="w-6 h-6" />
-                  <span>Play Track</span>
-                </button>
+                <div className="text-center">
+                  <button
+                    onClick={handlePlay}
+                    className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-medium rounded-xl transition-colors shadow-lg touch-manipulation min-h-[48px]"
+                  >
+                    <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
+                    </svg>
+                    Play Track
+                  </button>
+                </div>
               )}
 
-              
-            </div>
+              {/* Track Info Grid */}
+              <div className="grid gap-4">
+                <InfoItem icon="🎵" title="Era">
+                  <span className="font-mono text-sm">{track.era}</span>
+                </InfoItem>
 
-            {/* Links */}
-            {track.links && track.links.length > 0 && (
-              <InfoCard icon={<LinkIcon className="w-6 h-6" />} title="Links">
-                <div className="grid grid-cols-1 gap-3">
-                  {track.links.map((link, index) => {
-                    const originalUrl = typeof link === 'string' ? link : link.url;
-                    const label = typeof link === 'string' ? `Link ${index + 1}` : (link.label || `Link ${index + 1}`);
-                    
-                    let displayUrl = originalUrl;
-                    if (originalUrl.match(/music\.froste\.lol/i)) {
-                      displayUrl = originalUrl.endsWith('/') ? `${originalUrl}download` : `${originalUrl}/download`;
-                    }
-                    
-                    const isPlayableLink = (originalUrl.match(/pillow(case)?s?\.(su|top)/i) && originalUrl.match(/[a-f0-9]{32}/i)) || 
-                                          originalUrl.match(/music\.froste\.lol/i);
-                    
-                    return (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-3 bg-blue-50 hover:bg-blue-100 dark:bg-blue-900 dark:hover:bg-blue-800 rounded-lg transition-colors"
-                      >
-                        {isPlayableLink && onPlay && (
-                          <button
-                            onClick={() => {
-                              const tempTrack = { ...track, links: [typeof link === 'string' ? link : link] };
-                              onPlay(tempTrack);
-                            }}
-                            className="flex items-center justify-center w-10 h-10 music-gradient text-white rounded-full transition-all duration-300 hover:scale-105 flex-shrink-0"
-                            title="Play this link"
-                          >
-                            <PlayCircleIcon className="w-6 h-6" />
-                          </button>
-                        )}
-                        
-                        <button
-                          onClick={() => window.open(displayUrl, '_blank', 'noopener,noreferrer')}
-                          className="flex items-center space-x-2 text-blue-800 dark:text-blue-200 text-sm flex-1 min-w-0"
+                {track.trackLength && (
+                  <InfoItem icon="⏱️" title="Length">
+                    <span className="font-mono text-sm">{track.trackLength}</span>
+                  </InfoItem>
+                )}
+
+                {track.quality && (
+                  <InfoItem icon="💎" title="Quality">
+                    <QualityBadge quality={track.quality} />
+                  </InfoItem>
+                )}
+
+                {track.fileDate && (
+                  <InfoItem icon="📅" title="File Date">
+                    <span className="font-mono text-sm">{new Date(track.fileDate).toLocaleDateString()}</span>
+                  </InfoItem>
+                )}
+
+                {track.leakDate && (
+                  <InfoItem icon="📅" title="Leak Date">
+                    <span className="font-mono text-sm">{new Date(track.leakDate).toLocaleDateString()}</span>
+                  </InfoItem>
+                )}
+
+                {track.isSpecial && (
+                  <InfoItem icon={track.specialType === '🏆' ? '🏆' : '✨'} title="Special">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">{track.specialType}</span>
+                      <span>
+                        {track.specialType === '🏆' ? 'Trophy Track' :
+                         track.specialType === '⭐' ? 'Star Track' :
+                         track.specialType === '✨' ? 'Special Track' :
+                         'Special Content'}
+                      </span>
+                    </div>
+                  </InfoItem>
+                )}
+
+                {track.title?.features && track.title.features.length > 0 && (
+                  <InfoItem icon="🤝" title="Features">
+                    <div className="flex flex-wrap gap-2">
+                      {track.title.features.map((feature, index) => (
+                        <span key={index} className="bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300 px-2 py-1 rounded-lg text-sm">
+                          {feature}
+                        </span>
+                      ))}
+                    </div>
+                  </InfoItem>
+                )}
+
+                {track.title?.producers && track.title.producers.length > 0 && (
+                  <InfoItem icon="🎛️" title="Producers">
+                    <div className="flex flex-wrap gap-2">
+                      {track.title.producers.map((producer, index) => (
+                        <span key={index} className="bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300 px-2 py-1 rounded-lg text-sm">
+                          {producer}
+                        </span>
+                      ))}
+                    </div>
+                  </InfoItem>
+                )}
+
+                {track.notes && (
+                  <InfoItem icon="📝" title="Notes">
+                    <p className="text-sm leading-relaxed whitespace-pre-wrap">{track.notes}</p>
+                  </InfoItem>
+                )}
+
+                {track.links && track.links.length > 0 && (
+                  <InfoItem icon="🔗" title="Links">
+                    <div className="space-y-2">
+                      {track.links.map((link, index) => (
+                        <a
+                          key={index}
+                          href={link.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="block p-3 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 active:bg-gray-100 dark:active:bg-gray-600 transition-colors touch-manipulation min-h-[48px] flex items-center"
                         >
-                          <LinkIcon className="w-4 h-4 flex-shrink-0" />
-                          <span className="truncate">{label}</span>
-                        </button>
-                        
-                        <div className="flex-shrink-0">
-                          {originalUrl.match(/pillow(case)?s?\.(su|top)/i) && (
-                            <span className="text-xs px-2 py-1 bg-purple-100 dark:bg-purple-800 text-purple-700 dark:text-purple-300 rounded-full">
-                              Pillowcase
-                            </span>
-                          )}
-                          {originalUrl.match(/music\.froste\.lol/i) && (
-                            <span className="text-xs px-2 py-1 bg-green-100 dark:bg-green-800 text-green-700 dark:text-green-300 rounded-full">
-                              Froste
-                            </span>
-                          )}
-                          {!originalUrl.match(/pillow(case)?s?\.(su|top)/i) && !originalUrl.match(/music\.froste\.lol/i) && (
-                            <span className="text-xs px-2 py-1 bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded-full">
-                              External
-                            </span>
-                          )}
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-              </InfoCard>
-            )}
+                          <div className="flex items-center gap-2 w-full">
+                            <span className="text-blue-600 dark:text-blue-400 text-sm">🔗</span>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-sm font-medium block truncate">{link.platform || 'External Link'}</span>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{link.url}</p>
+                            </div>
+                            <svg className="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                            </svg>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </InfoItem>
+                )}
+              </div>
+            </div>
           </div>
         </div>
       </div>
-
-      
 
       {/* Music Player */}
       {showMusicPlayer && currentTrack && (
         <MusicPlayer
           track={currentTrack}
           isVisible={showMusicPlayer}
-          onClose={() => {
-            setShowMusicPlayer(false);
-            setCurrentTrack(null);
-          }}
+          onClose={handleCloseMusicPlayer}
         />
       )}
-    </div>
+    </>
   );
 }

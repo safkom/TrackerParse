@@ -14,17 +14,18 @@ const sanitizeTrackId = (trackId: string): string => {
 interface TrackGroupProps {
   group: TrackGroupType;
   onPlay?: (track: TrackType) => void;
+  onTrackInfo?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
 }
 
-export default function TrackGroup({ group, onPlay, onScrollToTrack }: TrackGroupProps) {
+export default function TrackGroup({ group, onPlay, onTrackInfo, onScrollToTrack }: TrackGroupProps) {
   const [isCollapsed, setIsCollapsed] = useState(true);
 
   // If only one track, don't show grouping UI, just render the track directly.
   if (group.tracks.length <= 1) {
     return (
       <div data-track-id={sanitizeTrackId(group.tracks[0].id || group.tracks[0].rawName)} className="mb-2 last:mb-0">
-        <Track track={group.tracks[0]} onPlay={onPlay} onScrollToTrack={onScrollToTrack} />
+        <Track track={group.tracks[0]} onPlay={onPlay} onTrackInfo={onTrackInfo} onScrollToTrack={onScrollToTrack} />
       </div>
     );
   }
@@ -37,37 +38,39 @@ export default function TrackGroup({ group, onPlay, onScrollToTrack }: TrackGrou
   };
 
   return (
-    <div className="track-group bg-white/50 dark:bg-gray-800/30 rounded-xl overflow-hidden border border-purple-200/50 dark:border-purple-800/50 shadow-sm transition-all duration-300 ease-in-out mb-3">
-      {/* Group Header */}
+    <div className="track-group bg-gray-50/70 dark:bg-gray-800/70 rounded-xl overflow-hidden border border-blue-200/50 dark:border-blue-800/50 shadow-sm transition-all duration-300 ease-in-out mb-3">
+      {/* Track Group Header */}
       <div 
-        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-purple-50/50 dark:hover:bg-purple-900/20 transition-colors"
+        className="flex items-center justify-between px-4 py-3 cursor-pointer hover:bg-blue-50/50 dark:hover:bg-blue-900/20 transition-colors"
         onClick={handleCollapseClick}
       >
-        <div className="flex items-center space-x-3 min-w-0 flex-1">
-          <h4 className="text-md font-semibold text-gray-800 dark:text-gray-100 truncate">
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <span className="text-sm font-semibold text-gray-900 dark:text-gray-100 truncate">
             {group.baseName}
-          </h4>
-          <span className="text-xs bg-purple-100 text-purple-800 dark:bg-purple-800 dark:text-purple-200 px-2 py-1 rounded-full font-medium whitespace-nowrap">
-            {group.tracks.length} versions
+          </span>
+          <span className="text-xs bg-blue-100 text-blue-800 dark:bg-blue-800 dark:text-blue-200 px-2 py-1 rounded-full font-medium whitespace-nowrap">
+            {group.tracks.length} version{group.tracks.length !== 1 ? 's' : ''}
           </span>
         </div>
-        <div className="flex items-center space-x-2">
-          <span className="text-xs text-gray-500 dark:text-gray-400 hidden sm:inline">
-            {isCollapsed ? 'Show all' : 'Collapse'}
-          </span>
+        
+        <div className="flex items-center gap-2 flex-shrink-0">
           <ChevronDownIcon 
-            className={`w-5 h-5 text-purple-500 dark:text-purple-400 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} 
+            className={`w-5 h-5 text-blue-500 dark:text-blue-400 transition-transform duration-300 ${isCollapsed ? '' : 'rotate-180'}`} 
           />
         </div>
       </div>
 
-      {/* Collapsible Track List */}
+      {/* Collapsed Track List */}
       {!isCollapsed && (
-        <div className="px-4 pb-3 pt-1 bg-purple-50/30 dark:bg-purple-900/10">
-          <div className="border-l-2 border-purple-200 dark:border-purple-700/50 pl-4 space-y-2">
+        <div className="px-4 pb-3 pt-1 bg-blue-50/30 dark:bg-blue-900/10">
+          <div className="border-l-2 border-blue-200 dark:border-blue-700/50 pl-4 space-y-2">
             {sortedTracks.map((track, index) => (
-              <div key={track.id || index} data-track-id={sanitizeTrackId(track.id || track.rawName)}>
-                <Track track={track} onPlay={onPlay} onScrollToTrack={onScrollToTrack} isCompact={true} />
+              <div 
+                key={track.id || `${track.rawName}-${index}`} 
+                data-track-id={sanitizeTrackId(track.id || track.rawName)}
+                className="group-track-item"
+              >
+                <Track track={track} onPlay={onPlay} onTrackInfo={onTrackInfo} onScrollToTrack={onScrollToTrack} />
               </div>
             ))}
           </div>

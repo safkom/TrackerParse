@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
-import { ParsedSpreadsheetData, Track } from "@/types";
+import { ParsedSpreadsheetData, Track, Album } from "@/types";
 import Artist from "@/components/Artist";
 import MusicPlayer from "@/components/MusicPlayer";
 import TrackDetailPage from "@/components/TrackDetailPage";
@@ -20,7 +20,6 @@ export default function SpreadsheetPage() {
   const [isMusicPlayerVisible, setIsMusicPlayerVisible] = useState(false);
   const [infoTrack, setInfoTrack] = useState<Track | null>(null);
   const [currentSheet, setCurrentSheet] = useState<SheetType>('unreleased');
-  const [sheetLoading, setSheetLoading] = useState(false);
 
   // Get sheet type from URL params
   useEffect(() => {
@@ -36,25 +35,34 @@ export default function SpreadsheetPage() {
       setLoading(true);
       setError(null);
       try {
-        // First, fetch only metadata for fast initial load
-        console.log('🚀 Fetching metadata for fast initial load...');
-        const metadataResponse = await fetch(`/api/parse-metadata?docId=${spreadsheetId}`);
-        if (!metadataResponse.ok) {
-          throw new Error("Failed to fetch spreadsheet metadata");
-        }
-        const metadataResult = await metadataResponse.json();
+        // Use only Google Sheets API for reliable data parsing
+        console.log('🚀 Fetching data using Google Sheets API...', { spreadsheetId });
+        const response = await fetch(`/api/parse`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            googleDocsUrl: `https://docs.google.com/spreadsheets/d/${spreadsheetId}/edit`
+          })
+        });
         
-        // Set initial data with metadata only
-        setData(metadataResult);
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Failed to parse error response' }));
+          throw new Error(errorData.error || "Failed to fetch spreadsheet data");
+        }
+        
+        const result = await response.json();
+        setData(result);
         setLoading(false);
         
-        console.log('✅ Metadata loaded successfully:', {
-          name: metadataResult.artist.name,
-          eras: metadataResult.artist.albums.length,
-          totalTracks: metadataResult.artist.albums.reduce((sum: number, album: any) => sum + (album.metadata?.trackCount || 0), 0)
+        console.log('✅ Data loaded successfully:', {
+          requestId: response.headers.get('X-Request-ID'),
+          name: result.artist.name,
+          eras: result.artist.albums.length,
+          totalTracks: result.artist.albums.reduce((sum: number, album: Album) => sum + album.tracks.length, 0)
         });
         
       } catch (err) {
+        console.error('❌ Failed to load data:', err);
         setError(err instanceof Error ? err.message : "An unknown error occurred");
         setLoading(false);
       }
@@ -95,19 +103,19 @@ export default function SpreadsheetPage() {
     setInfoTrack(null);
   };
 
-  if (loading || sheetLoading) {
+  if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
+      <div className="min-h-screen bg-slate-900">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
-          isLoading={sheetLoading}
+          isLoading={loading}
         />
         <div className="flex items-center justify-center pt-32">
           <div className="text-center">
-            <div className="animate-spin rounded-full h-16 w-16 border-4 border-purple-200 border-t-purple-600 mx-auto mb-6"></div>
-            <p className="text-purple-700 dark:text-purple-300 text-lg font-medium">
-              {sheetLoading ? 'Filtering tracks...' : 'Loading...'}
+            <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-600 border-t-blue-500 mx-auto mb-6"></div>
+            <p className="text-slate-300 text-lg font-medium">
+              Loading...
             </p>
           </div>
         </div>
@@ -116,16 +124,16 @@ export default function SpreadsheetPage() {
   }
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
+      <div className="min-h-screen bg-slate-900">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
-          isLoading={sheetLoading}
+          isLoading={loading}
         />
         <div className="flex items-center justify-center pt-32">
           <div className="text-center">
             <div className="text-red-500 text-6xl mb-4">⚠️</div>
-            <p className="text-red-600 dark:text-red-400 text-lg">Error: {error}</p>
+            <p className="text-red-400 text-lg">Error: {error}</p>
           </div>
         </div>
       </div>
@@ -133,16 +141,16 @@ export default function SpreadsheetPage() {
   }
   if (!data || !data.artist) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
+      <div className="min-h-screen bg-slate-900">
         <SheetNavigation 
           currentSheet={currentSheet}
           onSheetChange={handleSheetChange}
-          isLoading={sheetLoading}
+          isLoading={loading}
         />
         <div className="flex items-center justify-center pt-32">
           <div className="text-center">
-            <div className="text-gray-500 text-6xl mb-4">📭</div>
-            <p className="text-gray-600 dark:text-gray-400 text-lg">No data found for this spreadsheet.</p>
+            <div className="text-slate-500 text-6xl mb-4">📭</div>
+            <p className="text-slate-400 text-lg">No data found for this spreadsheet.</p>
           </div>
         </div>
       </div>
@@ -150,20 +158,22 @@ export default function SpreadsheetPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-violet-50 via-purple-50 to-fuchsia-50 dark:from-slate-950 dark:via-purple-950 dark:to-fuchsia-950">
+    <div className="min-h-screen bg-slate-900">
       <SheetNavigation 
         currentSheet={currentSheet}
         onSheetChange={handleSheetChange}
-        isLoading={sheetLoading}
+        isLoading={loading}
       />
-      <Artist
-        artist={data.artist}
-        onPlayTrack={handlePlayTrack}
-        onTrackInfo={handleTrackInfo}
-        docId={spreadsheetId}
-        sourceUrl={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
-        sheetType={currentSheet}
-      />
+      <div className="flex-1"> {/* Added flex wrapper to allow Artist content to expand */}
+        <Artist
+          artist={data.artist}
+          onPlayTrack={handlePlayTrack}
+          onTrackInfo={handleTrackInfo}
+          docId={spreadsheetId}
+          sourceUrl={`https://docs.google.com/spreadsheets/d/${spreadsheetId}`}
+          sheetType={currentSheet}
+        />
+      </div>
       <MusicPlayer
         track={currentTrack}
         isVisible={isMusicPlayerVisible}

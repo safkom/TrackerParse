@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import axios from 'axios';
-import Papa from 'papaparse';
-
-const USER_AGENT = 'Mozilla/5.0 (compatible; TrackerParse/1.0)';
-const REQUEST_TIMEOUT = 30000;
+import { GoogleSheetsAPIParser } from '@/utils/googleSheetsAPI';
 
 export async function POST(request: NextRequest) {
   try {
@@ -32,49 +28,69 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Invalid Google Docs URL format' }, { status: 400 });
     }
 
-    // Generate CSV URL
-    let csvUrl = `https://docs.google.com/spreadsheets/d/${docId}/export?format=csv`;
-    if (gid && gid !== '0') csvUrl += `&gid=${gid}`;
+    console.log('Fetching raw data via Google Sheets API:', docId, 'GID:', gid);
 
-    console.log('Fetching raw CSV from:', csvUrl);
-
-    // Fetch raw CSV data
-    const response = await axios.get(csvUrl, {
-      headers: { 
-        'User-Agent': USER_AGENT,
-        'Accept': 'text/csv,application/csv,text/plain,*/*'
-      },
-      timeout: REQUEST_TIMEOUT,
-      maxRedirects: 5,
-    });
-
-    // Parse CSV into rows
-    const results = Papa.parse(response.data, {
-      skipEmptyLines: false,
-      header: false
-    });
-
-    const rows = results.data as string[][];
+    // Use Google Sheets API to get raw data
+    const availableSheets = await GoogleSheetsAPIParser.getAvailableSheets(docId);
+    console.log('🔍 Available sheets:', availableSheets);
     
-    // Analyze the raw data
+    // Find target sheet by GID or use first sheet
+    let targetSheet = availableSheets.find(sheet => sheet.gid === gid);
+    if (!targetSheet && availableSheets.length > 0) {
+      targetSheet = availableSheets[0];
+    }
+    
+    const sheetName = targetSheet ? targetSheet.title : 'Sheet1';
+    console.log(`📋 Using sheet: ${sheetName} (GID: ${targetSheet?.gid || gid})`);
+    
+    const rows = await GoogleSheetsAPIParser.getSheetDataViaAPI(docId, sheetName);
+    console.log(`📋 Fetched ${rows.length} rows from Google Sheets API`);
+
+    // Normalize and analyze the raw data
+    const normalizedRows = rows.map(row => 
+      row.map(cell => (cell || '').toString().normalize('NFC'))
+    );
+    
+    // Find statistics rows near the end
+    const statisticsRows = [];
+    const startIndex = Math.max(0, normalizedRows.length - 100); // Last 100 rows
+    for (let i = startIndex; i < normalizedRows.length; i++) {
+      const row = normalizedRows[i];
+      const firstCell = row[0] ? row[0].toLowerCase() : '';
+      
+      // Look for statistics patterns
+      if (firstCell.includes('lossless') || firstCell.includes('cd quality') || 
+          firstCell.includes('total links') || firstCell.includes('og files') ||
+          (firstCell.includes('total') && firstCell.includes('full'))) {
+        statisticsRows.push({
+          rowIndex: i,
+          row: row
+        });
+      }
+    }
+
     const analysis = {
-      totalRows: rows.length,
-      nonEmptyRows: rows.filter(row => row.some(cell => cell && cell.trim())).length,
-      firstFewRows: rows.slice(0, 10), // First 10 rows for inspection
-      columnCount: Math.max(...rows.map(row => row.length)),
+      totalRows: normalizedRows.length,
+      nonEmptyRows: normalizedRows.filter(row => row.some(cell => cell && cell.trim())).length,
+      firstFewRows: normalizedRows.slice(0, 15), // First 15 rows for inspection
+      lastFewRows: normalizedRows.slice(-15), // Last 15 rows for statistics
+      statisticsRows: statisticsRows,
+      columnCount: Math.max(...normalizedRows.map(row => row.length)),
       sampleData: {
-        row0: rows[0] || [],
-        row1: rows[1] || [],
-        row2: rows[2] || [],
-        row3: rows[3] || [],
-        row4: rows[4] || [],
+        row0: normalizedRows[0] || [],
+        row1: normalizedRows[1] || [],
+        row2: normalizedRows[2] || [],
+        row3: normalizedRows[3] || [],
+        row4: normalizedRows[4] || [],
+        lastRow: normalizedRows[normalizedRows.length - 1] || [],
+        secondLastRow: normalizedRows[normalizedRows.length - 2] || [],
       }
     };
 
     // Look for potential header rows
     const potentialHeaders = [];
-    for (let i = 0; i < Math.min(15, rows.length); i++) {
-      const row = rows[i];
+    for (let i = 0; i < Math.min(15, normalizedRows.length); i++) {
+      const row = normalizedRows[i];
       const hasEra = row.some(cell => cell && cell.toLowerCase().includes('era'));
       const hasName = row.some(cell => cell && (
         cell.toLowerCase().includes('name') || 
@@ -94,17 +110,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Create comprehensive raw data with statistics
+    const fullRawData = normalizedRows.map(row => row.join('\t')).join('\n');
+    
     return NextResponse.json({
       success: true,
-      url: csvUrl,
-      rawData: response.data.substring(0, 5000) + (response.data.length > 5000 ? '\n... (truncated)' : ''),
+      url: googleDocsUrl,
+      rawData: fullRawData, // Full raw data instead of truncated
       analysis,
       potentialHeaders,
       metadata: {
         docId,
-        gid,
-        contentLength: response.data.length,
-        contentType: response.headers['content-type'],
+        gid: targetSheet?.gid || gid,
+        sheetName,
+        totalSheets: availableSheets.length,
+        availableSheets,
+        dataRows: normalizedRows.length,
         timestamp: new Date().toISOString()
       }
     });
@@ -112,15 +133,16 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     console.error('Raw data fetch error:', error);
     
-    let errorMessage = 'Failed to fetch raw data';
-    if (error && typeof error === 'object' && 'response' in error) {
-      const axiosError = error as { response?: { status?: number } };
-      if (axiosError.response?.status === 403) {
+    let errorMessage = 'Failed to fetch raw data via Google Sheets API';
+    if (error instanceof Error) {
+      if (error.message.includes('API key')) {
+        errorMessage = 'Google Sheets API key is not configured or invalid.';
+      } else if (error.message.includes('quota')) {
+        errorMessage = 'Google Sheets API quota exceeded.';
+      } else if (error.message.includes('Permission denied')) {
         errorMessage = 'Access denied. The Google Sheet may not be publicly accessible.';
-      } else if (axiosError.response?.status === 404) {
+      } else if (error.message.includes('not found')) {
         errorMessage = 'Google Sheet not found. Please check the URL.';
-      } else if (axiosError.response?.status === 429) {
-        errorMessage = 'Rate limit exceeded. Please try again later.';
       }
     }
 

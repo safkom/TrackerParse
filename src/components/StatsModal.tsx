@@ -17,7 +17,7 @@ export default function StatsModal({ isOpen, onClose, eraName, metadata }: Stats
   const statsItems = [
     { label: 'OG Files', value: metadata.ogFiles, color: 'text-green-600 dark:text-green-400', icon: '🟢' },
     { label: 'Full Files', value: metadata.fullFiles, color: 'text-blue-600 dark:text-blue-400', icon: '🔵' },
-    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-purple-600 dark:text-purple-400', icon: '🟣' },
+    { label: 'Tagged Files', value: metadata.taggedFiles, color: 'text-indigo-600 dark:text-indigo-400', icon: '🟣' },
     { label: 'Partial Files', value: metadata.partialFiles, color: 'text-yellow-600 dark:text-yellow-400', icon: '🟡' },
     { label: 'Snippet Files', value: metadata.snippetFiles, color: 'text-orange-600 dark:text-orange-400', icon: '🟠' },
     { label: 'Stem Bounce Files', value: metadata.stemBounceFiles, color: 'text-indigo-600 dark:text-indigo-400', icon: '🟤' },
@@ -107,7 +107,7 @@ export default function StatsModal({ isOpen, onClose, eraName, metadata }: Stats
                           </div>
                           <div className="w-full bg-gray-200 dark:bg-gray-600 rounded-full h-2">
                             <div 
-                              className="bg-gradient-to-r from-blue-500 to-purple-600 h-2 rounded-full transition-all duration-300"
+                              className="bg-gradient-to-r from-blue-500 to-blue-600 h-2 rounded-full transition-all duration-300"
                               style={{ width: `${percentage}%` }}
                             ></div>
                           </div>

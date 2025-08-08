@@ -4,16 +4,19 @@ import React, { useState, useMemo, memo } from 'react';
 import { Track as TrackType } from '@/types';
 import TrackDetailPage from './TrackDetailPage';
 import QualityTag from './QualityTag';
+import AvailabilityTag from './AvailabilityTag';
 
 interface TrackProps {
   track: TrackType;
   onPlay?: (track: TrackType) => void;
+  onTrackInfo?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
   isCompact?: boolean;
 }
 
-const Track = memo(({ track, onPlay, onScrollToTrack, isCompact = false }: TrackProps) => {
-  const [showDetailPage, setShowDetailPage] = useState(false);
+const Track = memo(({ track, onPlay, onTrackInfo, onScrollToTrack, isCompact = false }: TrackProps) => {
+  // Remove the local modal state since we'll use the parent's modal system
+  // const [showDetailPage, setShowDetailPage] = useState(false);
   
   const getPlayableSource = (track: TrackType): { type: string, url: string, id?: string } | null => {
     if (!track.links || track.links.length === 0) return null;
@@ -54,19 +57,14 @@ const Track = memo(({ track, onPlay, onScrollToTrack, isCompact = false }: Track
   }, [track.quality, track.availableLength, playable]);
   
   const handleTrackClick = () => {
-    setShowDetailPage(true);
+    // Use the parent's onTrackInfo callback instead of local modal
+    if (onTrackInfo) {
+      onTrackInfo(track);
+    }
     onScrollToTrack?.(track.id || track.rawName);
   };
 
-  if (showDetailPage) {
-    return (
-      <TrackDetailPage
-        track={track}
-        onClose={() => setShowDetailPage(false)}
-        onPlay={onPlay}
-      />
-    );
-  }
+  // Remove local modal rendering - will be handled by parent component
 
   const trackClassName = `track-item bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm rounded-xl ${isCompact ? 'p-2' : 'p-3 sm:p-4'} border border-purple-200/30 dark:border-purple-700/30 shadow-sm hover:shadow-md hover:bg-white dark:hover:bg-gray-800 cursor-pointer transition-all duration-300 hover:scale-[1.01] hover:border-purple-300/50 dark:hover:border-purple-600/50 ${
     track.isSpecial ? 'special-track' : ''
@@ -153,19 +151,7 @@ const Track = memo(({ track, onPlay, onScrollToTrack, isCompact = false }: Track
             <QualityTag quality={track.quality} />
           )}
           {!isCompact && track.availableLength && (
-            <span className={`text-xs px-2 py-1 rounded-full border flex items-center ${
-              track.availableLength.toLowerCase().includes('full') 
-                ? 'bg-green-100 dark:bg-green-900/50 text-green-700 dark:text-green-300 border-green-200 dark:border-green-700'
-                : track.availableLength.toLowerCase().includes('snippet') || track.availableLength.toLowerCase().includes('partial')
-                ? 'bg-orange-100 dark:bg-orange-900/50 text-orange-700 dark:text-orange-300 border-orange-200 dark:border-orange-700'
-                : 'bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300 border-emerald-200 dark:border-emerald-700'
-            }`}>
-              <span className="mr-1">
-                {track.availableLength.toLowerCase().includes('full') ? '✅' : 
-                 track.availableLength.toLowerCase().includes('snippet') || track.availableLength.toLowerCase().includes('partial') ? '⚠️' : '📊'}
-              </span>
-              {track.availableLength}
-            </span>
+            <AvailabilityTag availability={track.availableLength} />
           )}
         </div>
 

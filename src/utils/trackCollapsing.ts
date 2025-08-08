@@ -5,8 +5,8 @@ const PAREN_VERSION_REGEX = /\s*\([^)]*(?:version|edit|remix|mix|demo|live|acous
 const BRACKET_VERSION_REGEX = /\s*\[[^\]]*(?:version|edit|remix|mix|demo|live|acoustic|instrumental|clean|explicit|radio|studio|alt|alternative|leak|ref|reference|og|original|remaster)\b[^\]]*\]/gi;
 const TRAILING_VERSION_REGEX = /\s*(?:version|edit|remix|mix|demo|live|acoustic|instrumental|clean|explicit|radio|studio|alt|alternative|leak|ref|reference|og|original|remaster)\s*$/gi;
 
-// Similarity threshold for grouping tracks
-const SIMILARITY_GROUPING_THRESHOLD = 0.85;
+// NO similarity-based grouping - only exact matches or clear version relationships
+// const SIMILARITY_GROUPING_THRESHOLD = 0.95; // DISABLED - was causing false groupings
 
 // Enhanced grouping with better pattern matching
 export function groupTracksByName(tracks: Track[]): { [mainName: string]: Track[] } {
@@ -80,54 +80,74 @@ function extractCleanTitle(title: string): string {
   return cleanTitle || 'Unknown';
 }
 
-// Check if two tracks should be grouped together
+// Check if two tracks should be grouped together - MUCH MORE STRICT
 function shouldGroupTogether(track1: Track, track2: Track, cleanTitle1: string, cleanTitle2: string): boolean {
-  // Direct clean title match
+  // Only group if the clean titles are EXACTLY the same
   if (cleanTitle1.toLowerCase() === cleanTitle2.toLowerCase()) {
     return true;
   }
   
-  // Special check: if one title is just the other + a year, don't group them
-  const title1Lower = cleanTitle1.toLowerCase();
-  const title2Lower = cleanTitle2.toLowerCase();
+  // Check for numbered tracks that should NEVER be grouped
+  // Pattern: "word number" vs "word different_number" (e.g., "Beat 2" vs "Beat 4")
+  const numberedPattern = /^(.+?)\s+(\d+)(\s|$)/i;
+  const match1 = cleanTitle1.match(numberedPattern);
+  const match2 = cleanTitle2.match(numberedPattern);
   
-  // Check if one title ends with a 4-digit year and the other doesn't
-  const year1Match = title1Lower.match(/(\d{4})$/);
-  const year2Match = title2Lower.match(/(\d{4})$/);
-  
-  if (year1Match && !year2Match) {
-    // title1 has year, title2 doesn't - check if title2 is just title1 without year
-    const title1WithoutYear = title1Lower.replace(/\s*\d{4}$/, '').trim();
-    if (title1WithoutYear === title2Lower) {
-      console.log(`Preventing grouping: "${cleanTitle1}" vs "${cleanTitle2}" (year difference)`);
-      return false; // Don't group "Song 2018" with "Song"
-    }
-  } else if (!year1Match && year2Match) {
-    // title2 has year, title1 doesn't
-    const title2WithoutYear = title2Lower.replace(/\s*\d{4}$/, '').trim();
-    if (title2WithoutYear === title1Lower) {
-      console.log(`Preventing grouping: "${cleanTitle1}" vs "${cleanTitle2}" (year difference)`);
+  if (match1 && match2) {
+    const base1 = match1[1].toLowerCase().trim();
+    const base2 = match2[1].toLowerCase().trim();
+    const num1 = match1[2];
+    const num2 = match2[2];
+    
+    // If same base word but different numbers, NEVER group
+    if (base1 === base2 && num1 !== num2) {
+      console.log(`Preventing grouping of numbered tracks: "${cleanTitle1}" vs "${cleanTitle2}"`);
       return false;
     }
   }
   
-  // Check similarity score - made more strict to avoid false groupings
-  const similarity = calculateSimilarity(cleanTitle1.toLowerCase(), cleanTitle2.toLowerCase());
-  if (similarity >= SIMILARITY_GROUPING_THRESHOLD) {
-    return true;
+  // Check if tracks have the same core title but one has version indicators
+  // Only group if one is clearly a version of the other (e.g., "Song" and "Song [V2]")
+  const coreTitle1 = cleanTitle1.toLowerCase().replace(/\s*\[v?\d+\]|\s*v\d+|\s*version\s*\d*$/gi, '').trim();
+  const coreTitle2 = cleanTitle2.toLowerCase().replace(/\s*\[v?\d+\]|\s*v\d+|\s*version\s*\d*$/gi, '').trim();
+  
+  if (coreTitle1 === coreTitle2 && coreTitle1.length > 3) {
+    // Only group if one has version indicators and the other doesn't, or both have version indicators
+    const hasVersion1 = cleanTitle1.toLowerCase() !== coreTitle1;
+    const hasVersion2 = cleanTitle2.toLowerCase() !== coreTitle2;
+    
+    if (hasVersion1 || hasVersion2) {
+      console.log(`Grouping versions: "${cleanTitle1}" ↔ "${cleanTitle2}"`);
+      return true;
+    }
   }
   
-  // Check alternate names
-  const track1Names = getAllTrackNames(track1);
-  const track2Names = getAllTrackNames(track2);
+  // Check if one track title is contained in the other's alternate names EXACTLY
+  const track1MainLower = (track1.title?.main || '').toLowerCase().trim();
+  const track2MainLower = (track2.title?.main || '').toLowerCase().trim();
   
-  for (const name1 of track1Names) {
-    for (const name2 of track2Names) {
-      if (name1 === name2 || calculateSimilarity(name1, name2) >= 0.98) {
+  // Check if track1's main title matches any of track2's alternate names exactly
+  if (track2.title?.alternateNames) {
+    for (const altName of track2.title.alternateNames) {
+      if (altName.toLowerCase().trim() === track1MainLower && track1MainLower.length > 3) {
+        console.log(`Grouping by exact alternate name match: "${track1MainLower}" in "${track2MainLower}" alts`);
         return true;
       }
     }
   }
+  
+  // Check if track2's main title matches any of track1's alternate names exactly
+  if (track1.title?.alternateNames) {
+    for (const altName of track1.title.alternateNames) {
+      if (altName.toLowerCase().trim() === track2MainLower && track2MainLower.length > 3) {
+        console.log(`Grouping by exact alternate name match: "${track2MainLower}" in "${track1MainLower}" alts`);
+        return true;
+      }
+    }
+  }
+  
+  // NO similarity-based grouping - this was causing the false groupings
+  // NO fuzzy matching - only exact matches or clear version relationships
   
   return false;
 }

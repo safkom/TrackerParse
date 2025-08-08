@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { edgeLogger, generateRequestId } from '@/utils/edgeLogger';
 
 // Simple in-memory rate limiting
 const rateLimitStore = new Map<string, { count: number; lastReset: number }>();
@@ -24,18 +25,31 @@ function getRateLimit(ip: string): { allowed: boolean; remaining: number } {
 }
 
 export function middleware(request: NextRequest) {
+  // Generate unique request ID for tracking
+  const requestId = generateRequestId();
+  const startTime = Date.now();
+  
   // Apply rate limiting to API routes
   if (request.nextUrl.pathname.startsWith('/api/')) {
     const ip = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown';
     const { allowed, remaining } = getRateLimit(ip);
+    
+    // Log the incoming request
+    edgeLogger.logRequest(request, {
+      ip,
+      userAgent: request.headers.get('user-agent'),
+      referer: request.headers.get('referer'),
+    });
 
     if (!allowed) {
+      edgeLogger.warn(`Rate limit exceeded for IP: ${ip}`, { ip, path: request.nextUrl.pathname }, { requestId });
       return new NextResponse('Rate limit exceeded', {
         status: 429,
         headers: {
           'X-RateLimit-Limit': RATE_LIMIT_MAX_REQUESTS.toString(),
           'X-RateLimit-Remaining': '0',
           'X-RateLimit-Reset': Math.ceil(Date.now() / 1000 + RATE_LIMIT_WINDOW / 1000).toString(),
+          'X-Request-ID': requestId,
         },
       });
     }
@@ -43,6 +57,12 @@ export function middleware(request: NextRequest) {
     const response = NextResponse.next();
     response.headers.set('X-RateLimit-Limit', RATE_LIMIT_MAX_REQUESTS.toString());
     response.headers.set('X-RateLimit-Remaining', remaining.toString());
+    response.headers.set('X-Request-ID', requestId);
+    
+    // Log response (this will be approximate since we can't get the actual response status here)
+    const responseTime = Date.now() - startTime;
+    edgeLogger.debug(`Middleware processed request`, { responseTime }, { requestId });
+    
     return response;
   }
 

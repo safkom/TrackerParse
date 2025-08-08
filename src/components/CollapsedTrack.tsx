@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, memo, useMemo, useCallback } from 'react';
+import React, { useState, memo } from 'react';
 import { Track as TrackType } from '@/types';
 import TrackDetailPage from './TrackDetailPage';
 
@@ -79,53 +79,7 @@ const CollapsedTrack = memo(function CollapsedTrack({ tracks, onPlay, onScrollTo
     return null;
   };
 
-  // Memoized expensive calculations
-  const { primaryTrack, sortedTracks, cleanTitle, isCollapsed, hasPlayable } = useMemo(() => {
-    if (!tracks || tracks.length === 0) {
-      return { 
-        primaryTrack: null, 
-        sortedTracks: [], 
-        cleanTitle: 'Unknown', 
-        isCollapsed: false, 
-        hasPlayable: false 
-      };
-    }
-
-    // Sort tracks: special first, then by quality preference
-    const sorted = [...tracks].sort((a, b) => {
-      // Special tracks first
-      if (a.isSpecial && !b.isSpecial) return -1;
-      if (!a.isSpecial && b.isSpecial) return 1;
-      
-      // Then by quality preference
-      const qualityOrder = ['og', 'original', 'full', 'lossless', 'cd quality', 'tagged', 'partial', 'snippet', 'demo'];
-      const aQuality = (a.quality || '').toLowerCase();
-      const bQuality = (b.quality || '').toLowerCase();
-      
-      const aIndex = qualityOrder.findIndex(q => aQuality.includes(q));
-      const bIndex = qualityOrder.findIndex(q => bQuality.includes(q));
-      
-      if (aIndex !== -1 && bIndex !== -1) return aIndex - bIndex;
-      if (aIndex !== -1) return -1;
-      if (bIndex !== -1) return 1;
-      
-      return 0;
-    });
-
-    const primary = sorted[0];
-    const title = extractCleanTitle(primary?.title?.main || primary?.rawName || 'Unknown');
-    const collapsed = sorted.length > 1;
-    const playableExists = sorted.some(track => getPlayableSource(track) !== null);
-
-    return {
-      primaryTrack: primary,
-      sortedTracks: sorted,
-      cleanTitle: title,
-      isCollapsed: collapsed,
-      hasPlayable: playableExists
-    };
-  }, [tracks]);
-
+  // Use the main track and check for multiple versions
   if (!tracks || tracks.length === 0) return null;
 
   const mainTrack = tracks[0];
@@ -354,4 +308,43 @@ const CollapsedTrack = memo(function CollapsedTrack({ tracks, onPlay, onScrollTo
                       if (isRumored && hasPlayableLink) {
                         // For rumored tracks with links, just open the link
                         const playable = getPlayableSource(track);
-                        if
+                        if (playable) {
+                          window.open(playable.url, '_blank', 'noopener,noreferrer');
+                          return;
+                        }
+                      }
+                      
+                      onPlay?.(track);
+                    }}
+                  >
+                    <p className="font-medium text-sm text-gray-900 dark:text-white">
+                      {extractCleanTitle(track.title?.main || track.rawName)}
+                    </p>
+                    {hasPlayableLink && (
+                      <button
+                        className="w-full text-left px-2 py-2 text-xs bg-green-500 hover:bg-green-600 text-white rounded transition-colors"
+                      >
+                        ▶ Play
+                      </button>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      )}
+      
+      {showDetailPage && (
+        <TrackDetailPage
+          track={showDetailPage}
+          onClose={() => setShowDetailPage(null)}
+        />
+      )}
+    </div>
+  );
+});
+
+CollapsedTrack.displayName = 'CollapsedTrack';
+
+export default CollapsedTrack;

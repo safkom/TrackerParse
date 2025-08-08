@@ -9,14 +9,20 @@ interface LazyEraProps {
   docId: string;
   onPlay?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
+  onTrackInfo?: (track: TrackType) => void;
   isSearchActive?: boolean;
+  sheetType?: string; // Add sheetType prop
 }
 
-export default function LazyEra({ era, docId, onPlay, onScrollToTrack, isSearchActive = false }: LazyEraProps) {
+// Cache for era data to avoid re-fetching
+const eraDataCache = new Map<string, AlbumType>();
+
+export default function LazyEra({ era, docId, onPlay, onScrollToTrack, onTrackInfo, isSearchActive = false, sheetType }: LazyEraProps) {
   const [eraData, setEraData] = useState<AlbumType>(era);
-  const [isLoading, setIsLoading] = useState(false);
   const [isExpanded, setIsExpanded] = useState(isSearchActive);
   const [hasLoadedTracks, setHasLoadedTracks] = useState(era.tracks.length > 0);
+
+  const cacheKey = `${docId}-${era.name}`;
 
   // Auto-expand when search is active
   useEffect(() => {
@@ -25,75 +31,73 @@ export default function LazyEra({ era, docId, onPlay, onScrollToTrack, isSearchA
     }
   }, [isSearchActive]);
 
-  // Load tracks when era is expanded
-  const handleExpansion = useCallback(async (expanded: boolean) => {
-    setIsExpanded(expanded);
-    
-    if (expanded && !hasLoadedTracks && !isLoading) {
-      setIsLoading(true);
-      try {
-        console.log(`🎵 Loading tracks for era: ${era.name}`);
-        
-        // Fetch full data from parse endpoint
-        const response = await fetch(`/api/parse`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            googleDocsUrl: `https://docs.google.com/spreadsheets/d/${docId}/edit`
-          })
-        });
-        
-        if (!response.ok) {
-          throw new Error(`Failed to load era details: ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        
-        // Find the specific album/era from the full data
-        const fullEra = result.artist.albums.find((album: AlbumType) => album.name === era.name);
-        
-        if (fullEra) {
-          setEraData(fullEra);
-          setHasLoadedTracks(true);
-          console.log(`✅ Loaded ${fullEra.tracks.length} tracks for era: ${era.name}`);
-        } else {
-          console.warn(`❌ Era "${era.name}" not found in full data`);
-        }
-        
-      } catch (error) {
-        console.error(`❌ Error loading era ${era.name}:`, error);
-        // Keep the original era data on error
-      } finally {
-        setIsLoading(false);
+  // Load tracks when era is expanded - now simply uses existing data
+  const loadEraData = useCallback(() => {
+    // Don't cache or use cached data if tracks are empty - wait for full data
+    if (era.tracks.length === 0) {
+      console.log(`⏳ Waiting for track data for era: ${era.name}`);
+      setEraData(era);
+      setHasLoadedTracks(false);
+      return;
+    }
+
+    // Check cache only if current era has tracks
+    if (eraDataCache.has(cacheKey) && era.tracks.length > 0) {
+      const cachedData = eraDataCache.get(cacheKey)!;
+      // Only use cache if cached data also has tracks
+      if (cachedData.tracks.length > 0) {
+        setEraData(cachedData);
+        setHasLoadedTracks(true);
+        console.log(`🎯 Using cached data for era: ${era.name} (${cachedData.tracks.length} tracks)`);
+        return;
       }
     }
-  }, [era.name, era.id, docId, hasLoadedTracks, isLoading]);
+
+    // Use the era data with tracks
+    console.log(`📦 Using track data for era: ${era.name} (${era.tracks.length} tracks)`);
+    
+    // Only cache if we have actual tracks
+    if (era.tracks.length > 0) {
+      eraDataCache.set(cacheKey, era);
+    }
+    
+    setEraData(era);
+    setHasLoadedTracks(era.tracks.length > 0);
+  }, [cacheKey, era]);
+
+  // Handle expansion changes
+  const handleExpansion = useCallback((expanded: boolean) => {
+    setIsExpanded(expanded);
+    
+    if (expanded && (!hasLoadedTracks || era.tracks.length > eraData.tracks.length)) {
+      loadEraData(); // Load data when user manually expands or when new data is available
+    }
+  }, [loadEraData, hasLoadedTracks, era.tracks.length, eraData.tracks.length]);
+
+  // Update data when era prop changes (e.g., when full data loads)
+  useEffect(() => {
+    // If era has more tracks than current eraData, update immediately
+    if (era.tracks.length > eraData.tracks.length) {
+      loadEraData();
+    }
+  }, [era.tracks.length, eraData.tracks.length, loadEraData]);
+
+  // Load data immediately on mount if era has tracks
+  useEffect(() => {
+    if (era.tracks.length > 0 && !hasLoadedTracks) {
+      loadEraData();
+    }
+  }, [era.tracks.length, hasLoadedTracks, loadEraData]);
 
   return (
-    <div className="relative">
-      {/* Loading overlay */}
-      {isLoading && (
-        <div className="absolute inset-0 bg-white/80 dark:bg-gray-800/80 rounded-lg z-10 flex items-center justify-center">
-          <div className="flex items-center space-x-2 text-blue-600 dark:text-blue-400">
-            <svg className="animate-spin h-5 w-5" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span className="text-sm font-medium">Loading tracks...</span>
-          </div>
-        </div>
-      )}
-      
-      <ImprovedAlbum 
-        album={eraData}
-        onPlay={onPlay}
-        onScrollToTrack={onScrollToTrack}
-        isSearchActive={isSearchActive}
-        onExpansionChange={handleExpansion}
-        showTrackCount={!hasLoadedTracks}
-      />
-    </div>
+    <ImprovedAlbum 
+      album={eraData}
+      onPlay={onPlay}
+      onTrackInfo={onTrackInfo}
+      isSearchActive={isSearchActive}
+      onExpansionChange={handleExpansion}
+      showTrackCount={!hasLoadedTracks}
+      sheetType={sheetType}
+    />
   );
 }

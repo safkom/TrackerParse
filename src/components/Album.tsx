@@ -1,23 +1,23 @@
 'use client';
 
-import { useState, useEffect, useMemo, useCallback, memo, lazy, Suspense } from 'react';
+import { useState, useEffect, useMemo, useCallback, memo } from 'react';
 import Image from 'next/image';
 import { Album as AlbumType, Track as TrackType } from '@/types';
 import { groupTracksByName, sortTracksInGroup } from '@/utils/trackCollapsing';
 
-// Lazy load heavy components for better performance
-const TrackGroup = lazy(() => import('./TrackGroup'));
-const StatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.default })));
-const ExpandedStatsDisplay = lazy(() => import('./StatsDisplay').then(module => ({ default: module.ExpandedStatsDisplay })));
+// Import components directly for better performance (no lazy loading)
+import TrackGroup from './TrackGroup';
+import StatsDisplay, { ExpandedStatsDisplay } from './StatsDisplay';
 
 interface AlbumProps {
   album: AlbumType;
   onPlay?: (track: TrackType) => void;
+  onTrackInfo?: (track: TrackType) => void;
   onScrollToTrack?: (trackId: string) => void;
   isSearchActive?: boolean;
 }
 
-const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActive = false }: AlbumProps) {
+const Album = memo(function Album({ album, onPlay, onTrackInfo, onScrollToTrack, isSearchActive = false }: AlbumProps) {
   const [isExpanded, setIsExpanded] = useState(isSearchActive);
   const [showStats, setShowStats] = useState(false);
   const [selectedQualities, setSelectedQualities] = useState<string[]>([]);
@@ -36,24 +36,60 @@ const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActi
     const quality = track.quality?.toLowerCase() || '';
     const availableLength = track.availableLength?.toLowerCase() || '';
     const rawName = track.rawName?.toLowerCase() || '';
+    const title = track.title?.main?.toLowerCase() || '';
     
     return selectedQualities.some(qualityKey => {
       switch (qualityKey) {
         case 'og':
-          return quality.includes('og') || quality.includes('original') || rawName.includes('og file');
+          return quality.includes('og') || 
+                 quality.includes('original') || 
+                 rawName.includes('og file') ||
+                 rawName.includes('og ') ||
+                 rawName.includes('(og)') ||
+                 title.includes('og ') ||
+                 title.includes('(og)') ||
+                 quality.includes('og version');
         case 'full':
-          return quality.includes('full') || availableLength.includes('full') || quality.includes('lossless') || quality.includes('cd quality');
+          return quality.includes('full') || 
+                 availableLength.includes('full') || 
+                 quality.includes('lossless') || 
+                 quality.includes('cd quality') ||
+                 quality.includes('320') ||
+                 quality.includes('flac') ||
+                 quality.includes('cdq');
         case 'tagged':
-          return quality.includes('tagged') || quality.includes('tag') || rawName.includes('tagged');
+          return quality.includes('tagged') || 
+                 quality.includes('tag') || 
+                 rawName.includes('tagged') ||
+                 rawName.includes('tagged file');
         case 'partial':
-          return quality.includes('partial') || availableLength.includes('partial') || track.trackLength?.toLowerCase().includes('partial');
+          return quality.includes('partial') || 
+                 availableLength.includes('partial') || 
+                 track.trackLength?.toLowerCase().includes('partial') ||
+                 quality.includes('incomplete');
         case 'snippet':
-          return quality.includes('snippet') || availableLength.includes('snippet') || track.trackLength?.toLowerCase().includes('snippet');
+          return quality.includes('snippet') || 
+                 availableLength.includes('snippet') || 
+                 track.trackLength?.toLowerCase().includes('snippet') ||
+                 quality.includes('lq') ||
+                 quality.includes('low quality') ||
+                 title.includes('snippet') ||
+                 rawName.includes('snippet');
         case 'stem':
-          return quality.includes('stem') || quality.includes('bounce') || rawName.includes('stem') || rawName.includes('bounce');
+          return quality.includes('stem') || 
+                 quality.includes('bounce') || 
+                 rawName.includes('stem') || 
+                 rawName.includes('bounce') ||
+                 title.includes('stem') ||
+                 quality.includes('instrumental') ||
+                 quality.includes('acapella');
         case 'unavailable':
-          return quality.includes('unavailable') || quality.includes('not available') || 
-                 availableLength.includes('unavailable') || availableLength.includes('not available');
+          return quality.includes('unavailable') || 
+                 quality.includes('not available') || 
+                 availableLength.includes('unavailable') || 
+                 availableLength.includes('not available') ||
+                 quality.includes('n/a') ||
+                 quality.includes('na');
         default:
           return false;
       }
@@ -139,12 +175,14 @@ const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActi
               {/* Era Name */}
               <h2 className="text-base sm:text-lg font-semibold truncate text-gray-900 dark:text-white">
                 {album.name}
-                {album.alternateNames && album.alternateNames.length > 0 && (
-                  <span className="text-sm opacity-60 font-normal">
-                    {' '}({album.alternateNames.join(', ')})
-                  </span>
-                )}
               </h2>
+              
+              {/* Alternate Names */}
+              {album.alternateNames && album.alternateNames.length > 0 && (
+                <p className="text-xs opacity-50 font-normal text-gray-600 dark:text-gray-400 mt-0.5">
+                  {album.alternateNames.join(' • ')}
+                </p>
+              )}
               
               {/* Era Description */}
               {album.description && (
@@ -221,15 +259,13 @@ const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActi
         {/* Stats Display - now at the top when expanded */}
         {isExpanded && album.metadata && showStats && (
           <div className="mt-3 px-4">
-            <Suspense fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-32 rounded"></div>}>
-              <ExpandedStatsDisplay
-                eraName={album.name}
-                metadata={album.metadata}
-                onClose={() => setShowStats(false)}
-                selectedQualities={selectedQualities}
-                onQualityFilter={handleQualityFilter}
-              />
-            </Suspense>
+            <ExpandedStatsDisplay
+              eraName={album.name}
+              metadata={album.metadata}
+              onClose={() => setShowStats(false)}
+              selectedQualities={selectedQualities}
+              onQualityFilter={handleQualityFilter}
+            />
           </div>
         )}
       </div>
@@ -251,13 +287,13 @@ const Album = memo(function Album({ album, onPlay, onScrollToTrack, isSearchActi
                   };
                   
                   return (
-                    <Suspense key={group.mainName + index} fallback={<div className="animate-pulse bg-gray-200 dark:bg-gray-700 h-16 rounded"></div>}>
-                      <TrackGroup 
-                        group={trackGroup}
-                        onPlay={onPlay} 
-                        onScrollToTrack={onScrollToTrack}
-                      />
-                    </Suspense>
+                    <TrackGroup 
+                      key={group.mainName + index}
+                      group={trackGroup}
+                      onPlay={onPlay} 
+                      onTrackInfo={onTrackInfo}
+                      onScrollToTrack={onScrollToTrack}
+                    />
                   );
                 })}
               </div>

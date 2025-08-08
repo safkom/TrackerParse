@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
         name: artist.name,
         description: artist.description,
         albumCount: artist.albums.length,
-        totalTracks: artist.albums.reduce((sum: number, album: any) => sum + album.tracks.length, 0)
+        totalTracks: artist.albums.reduce((sum: number, album: { tracks: unknown[] }) => sum + album.tracks.length, 0)
       },
       lastUpdated: new Date().toISOString(),
       docId

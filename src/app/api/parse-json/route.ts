@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function POST(request: NextRequest) {
   try {
-    const { jsonData, trackerName } = await request.json();
+    const { jsonData } = await request.json();
 
     if (!jsonData) {
       return NextResponse.json({ error: 'JSON data is required' }, { status: 400 });

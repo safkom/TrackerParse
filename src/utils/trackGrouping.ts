@@ -1,33 +1,5 @@
 import { Track, TrackTitle } from '@/types';
 
-// Version patterns for cleaning track names
-const versionPatterns = [
-  'v\\d+',
-  'version\\s*\\d*',
-  'edit',
-  'remix',
-  'mix',
-  'demo',
-  'live',
-  'acoustic',
-  'instrumental',
-  'clean',
-  'explicit',
-  'radio',
-  'studio',
-  'alt',
-  'alternative',
-  'leak',
-  'ref',
-  'reference',
-  'og',
-  'original',
-  'remaster'
-];
-
-// Similarity threshold for track name matching
-const TRACK_NAME_SIMILARITY_THRESHOLD = 0.85;
-
 export interface TrackGroup {
   id: string;
   baseName: string;
@@ -37,108 +9,144 @@ export interface TrackGroup {
 }
 
 /**
- * Extract the base name from a track title, removing version suffixes
+ * Check if two tracks should be grouped together based on very strict criteria
+ * Tracks should only be grouped if they are clearly the same song with minor variations
  */
-export function extractBaseName(title: TrackTitle): string {
-  if (!title.main) return 'Unknown';
+function shouldGroupTracks(track1: Track, track2: Track): boolean {
+  // Normalize function for comparing titles
+  const normalize = (str: string) => str.toLowerCase().trim().replace(/\s+/g, ' ');
   
-  let baseName = title.main;
+  const track1Main = normalize(track1.title.main);
+  const track2Main = normalize(track2.title.main);
   
-  // Handle artist collaborations first - extract main track name
-  const artistCollabMatch = baseName.match(/^[^-]+ - (.+)$/);
-  if (artistCollabMatch) {
-    baseName = artistCollabMatch[1].trim();
-  }
+  // First check: Do the main titles match exactly?
+  const mainTitlesMatch = track1Main === track2Main;
   
-  // Remove version patterns first [V1], [V2], etc.
-  baseName = baseName.replace(/\s*\[V\d+\]\s*/gi, ' ');
-  
-  // Remove common version patterns - enhanced for better matching
-  baseName = baseName.replace(
-    new RegExp(`\\s*[-_]\\s*(${versionPatterns.join('|')})\\s*$`, 'i'),
-    ''
-  );
-  
-  // Remove parenthetical content that looks like technical metadata, references, or quality info
-  // Keep alternate names that might be useful for grouping
-  const PAREN_REF_PATTERN = 'ref\\.?[^)]*';
-  const PAREN_PROD_PATTERN = 'prod\\.?[^)]*';
-  const PAREN_SIZE_PATTERN = '[\\d]+[kmgt]?b';
-  const PAREN_FREQ_PATTERN = '[\\d]+hz';
-  const PAREN_BITRATE_PATTERN = '[\\d]+kbps';
-  const PAREN_FORMAT_PATTERN = 'lossless|flac|mp3|wav|m4a|aac|ogg';
-  const PAREN_TIME_PATTERN = '[\\d:]+';
-  const PAREN_CONTENT_PATTERN = `${PAREN_REF_PATTERN}|${PAREN_PROD_PATTERN}|${PAREN_SIZE_PATTERN}|${PAREN_FREQ_PATTERN}|${PAREN_BITRATE_PATTERN}|${PAREN_FORMAT_PATTERN}|${PAREN_TIME_PATTERN}`;
-  const PAREN_REGEX = new RegExp(`\\s*\\((${PAREN_CONTENT_PATTERN})\\)\\s*`, 'gi');
-  baseName = baseName.replace(PAREN_REGEX, ' ');
-  
-  // Remove square brackets with version info or other metadata
-  baseName = baseName.replace(/\s*\[[^\]]*\]\s*/g, ' ');
-  
-  // Remove standalone version indicators at the end
-  baseName = baseName.replace(/\s+(V\d+|Version\s*\d*|Alt\s*\d*|Alternative\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|Instrumental\s*\d*|Final\s*\d*|Original\s*\d*|Extended\s*\d*|Short\s*\d*|Full\s*\d*|Leak\s*\d*|CDQ\s*\d*|HQ\s*\d*)$/i, '');
-  
-  // Remove quality indicators and technical specs
-  baseName = baseName.replace(/\s*-\s*([\d]+[kmgt]?b|[\d]+hz|[\d]+kbps|lossless|flac|mp3|wav|m4a|aac|ogg)\s*$/i, '');
-  
-  // Remove trailing punctuation, dashes, and normalize spaces
-  baseName = baseName.replace(/[\s\-_,\/]+$/, '').replace(/\s+/g, ' ').trim();
-  
-  // Remove leading/trailing quotes or brackets
-  baseName = baseName.replace(/^['""`\[\(]+|['""`\]\)]+$/g, '');
-  
-  // Handle unknown/??? grouping
-  if (baseName.toLowerCase().includes('unknown') || baseName.includes('???') || !baseName || baseName.trim() === '') {
-    return 'Unknown';
-  }
-  
-  // If the base name is now too short or generic, check alternate names
-  if (baseName.length < 3 && title.alternateNames && title.alternateNames.length > 0) {
-    for (const altName of title.alternateNames) {
-      if (altName && altName.length > 3 && !altName.toLowerCase().includes('unknown')) {
-        // Use the first substantial alternate name as the base
-        let altBase = altName.trim();
-        // Clean it similarly but more conservatively
-        altBase = altBase.replace(/\s+/g, ' ').trim();
-        if (altBase.length > 3) {
-          return altBase;
+  // If main titles don't match, check if one is an alternate name of the other
+  let hasAlternateMatch = false;
+  if (!mainTitlesMatch) {
+    // Check if track1's main title matches any of track2's alternate names
+    for (const altName of track2.title.alternateNames) {
+      if (normalize(altName) === track1Main) {
+        hasAlternateMatch = true;
+        break;
+      }
+    }
+    
+    // Check if track2's main title matches any of track1's alternate names  
+    if (!hasAlternateMatch) {
+      for (const altName of track1.title.alternateNames) {
+        if (normalize(altName) === track2Main) {
+          hasAlternateMatch = true;
+          break;
         }
+      }
+    }
+    
+    // Check if any alternate names match each other
+    if (!hasAlternateMatch) {
+      for (const alt1 of track1.title.alternateNames) {
+        for (const alt2 of track2.title.alternateNames) {
+          if (normalize(alt1) === normalize(alt2)) {
+            hasAlternateMatch = true;
+            break;
+          }
+        }
+        if (hasAlternateMatch) break;
       }
     }
   }
   
-  return baseName || 'Unknown';
-}
-
-/**
- * Check if two tracks should be grouped together based on base name or alternate names
- */
-function shouldGroupTracks(track1: Track, track2: Track): boolean {
-  const baseName1 = extractBaseName(track1.title);
-  const baseName2 = extractBaseName(track2.title);
+  // If neither main titles match nor alternate names match, don't group
+  if (!mainTitlesMatch && !hasAlternateMatch) {
+    return false;
+  }
   
-  // Direct base name match
-  if (baseName1 === baseName2) return true;
+  // Additional checks to prevent grouping tracks that happen to have the same name
+  // but are clearly different songs based on context
   
-  // Check if any alternate names match
-  const allNames1 = [track1.title.main, ...track1.title.alternateNames].map(name => 
-    name.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ')
-  ).filter(name => name.length > 2);
+  // 1. Different time periods - if dates are very different, likely different tracks
+  const getYear = (dateStr: string) => {
+    if (!dateStr) return null;
+    const match = dateStr.match(/\d{4}/);
+    return match ? parseInt(match[0]) : null;
+  };
   
-  const allNames2 = [track2.title.main, ...track2.title.alternateNames].map(name => 
-    name.toLowerCase().trim().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ')
-  ).filter(name => name.length > 2);
+  const date1 = getYear(track1.fileDate || track1.leakDate || '');
+  const date2 = getYear(track2.fileDate || track2.leakDate || '');
   
-  // Check for overlap in names
-  for (const name1 of allNames1) {
-    for (const name2 of allNames2) {
-      if (name1 === name2) return true;
-      // Check for high similarity - see TRACK_NAME_SIMILARITY_THRESHOLD for rationale
-      if (calculateSimilarity(name1, name2) >= TRACK_NAME_SIMILARITY_THRESHOLD) return true;
+  if (date1 && date2 && Math.abs(date1 - date2) > 3) {
+    // If tracks are more than 3 years apart, likely different songs
+    return false;
+  }
+  
+  // 2. Very different track lengths suggest different tracks
+  const parseLength = (lengthStr: string) => {
+    if (!lengthStr) return null;
+    const match = lengthStr.match(/(\d+):(\d+)/);
+    if (!match) return null;
+    return parseInt(match[1]) * 60 + parseInt(match[2]);
+  };
+  
+  const length1 = parseLength(track1.trackLength || '');
+  const length2 = parseLength(track2.trackLength || '');
+  
+  if (length1 && length2 && Math.abs(length1 - length2) > 60) {
+    // If tracks differ by more than 1 minute, likely different songs
+    return false;
+  }
+  
+  // 3. Check if notes suggest they're different contexts/recordings
+  const notes1 = normalize(track1.notes || '');
+  const notes2 = normalize(track2.notes || '');
+  
+  // Look for conflicting context clues in notes
+  const contextClues = [
+    'demo tape', 'compilation tape', 'world record holders',
+    'hinge studios', '1997', '1998', '1999', '2000', '2001', '2002',
+    'state of mind', 'go getters', 'chicago outfit',
+    'track 1', 'track 2', 'track 3', 'track 4', 'track 5', 'track 6', 'track 7', 'track 8', 'track 9', 'track 10',
+    'takeover', 'j dilla', 'september 1997'
+  ];
+  
+  for (const clue of contextClues) {
+    const in1 = notes1.includes(clue);
+    const in2 = notes2.includes(clue);
+    
+    // If one has a specific context clue and the other doesn't, they might be different
+    if (in1 && !in2 && notes2.length > 10) return false;
+    if (in2 && !in1 && notes1.length > 10) return false;
+  }
+  
+  // 4. For numbered tracks (Beat 1, Beat 2, etc.), they should NEVER be grouped together
+  // Each numbered track is a distinct composition
+  const isNumberedTrack1 = track1Main.match(/^(beat|track|song|demo|snippet|take|version|mix|edit)\s+\d+/i);
+  const isNumberedTrack2 = track2Main.match(/^(beat|track|song|demo|snippet|take|version|mix|edit)\s+\d+/i);
+  
+  if (isNumberedTrack1 || isNumberedTrack2) {
+    // Extract the base name and number for comparison
+    const extractNumberedInfo = (title: string) => {
+      const match = title.match(/^(beat|track|song|demo|snippet|take|version|mix|edit)\s+(\d+)/i);
+      if (match) {
+        return { base: match[1].toLowerCase(), number: parseInt(match[2]) };
+      }
+      return null;
+    };
+    
+    const info1 = extractNumberedInfo(track1Main);
+    const info2 = extractNumberedInfo(track2Main);
+    
+    // If both are numbered tracks with the same base type
+    if (info1 && info2 && info1.base === info2.base) {
+      // They should only be grouped if they have the EXACT same number
+      if (info1.number !== info2.number) {
+        return false; // Different numbered tracks should never be grouped
+      }
     }
   }
   
-  return false;
+  // If we passed all the checks, allow grouping
+  return true;
 }
 
 /**
@@ -157,51 +165,7 @@ export function isUnknownTrack(title: TrackTitle): boolean {
 }
 
 /**
- * Calculate similarity between two strings (0-1 scale)
- */
-function calculateSimilarity(str1: string, str2: string): number {
-  if (str1 === str2) return 1;
-  
-  const longer = str1.length > str2.length ? str1 : str2;
-  const shorter = str1.length > str2.length ? str2 : str1;
-  
-  const editDistance = levenshteinDistance(longer.toLowerCase(), shorter.toLowerCase());
-  return (longer.length - editDistance) / longer.length;
-}
-
-/**
- * Calculate Levenshtein distance between two strings
- */
-function levenshteinDistance(str1: string, str2: string): number {
-  const matrix = [];
-  
-  for (let i = 0; i <= str2.length; i++) {
-    matrix[i] = [i];
-  }
-  
-  for (let j = 0; j <= str1.length; j++) {
-    matrix[0][j] = j;
-  }
-  
-  for (let i = 1; i <= str2.length; i++) {
-    for (let j = 1; j <= str1.length; j++) {
-      if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
-        matrix[i][j] = matrix[i - 1][j - 1];
-      } else {
-        matrix[i][j] = Math.min(
-          matrix[i - 1][j - 1] + 1,
-          matrix[i][j - 1] + 1,
-          matrix[i - 1][j] + 1
-        );
-      }
-    }
-  }
-  
-  return matrix[str2.length][str1.length];
-}
-
-/**
- * Group tracks by their base name and unknown status
+ * Group tracks by their exact main title and alternate titles only
  */
 export function groupTracks(tracks: Track[]): TrackGroup[] {
   // First sort tracks by title
@@ -211,23 +175,22 @@ export function groupTracks(tracks: Track[]): TrackGroup[] {
     return aTitle.localeCompare(bTitle);
   });
 
-  const groups = new Map<string, TrackGroup>();
+  const groups: TrackGroup[] = [];
   
   for (const track of sortedTracks) {
-    const baseName = extractBaseName(track.title);
     const unknown = isUnknownTrack(track.title);
     
     // Try to find an existing group this track should belong to
-    let foundGroup: string | null = null;
+    let foundGroup: TrackGroup | null = null;
     
     if (!unknown) { // Only do matching for non-unknown tracks
-      for (const [existingKey, existingGroup] of groups.entries()) {
+      for (const existingGroup of groups) {
         if (existingGroup.isUnknown) continue; // Don't match with unknown groups
         
         // Check if this track should be grouped with any track in the existing group
         for (const existingTrack of existingGroup.tracks) {
           if (shouldGroupTracks(track, existingTrack)) {
-            foundGroup = existingKey;
+            foundGroup = existingGroup;
             break;
           }
         }
@@ -236,45 +199,39 @@ export function groupTracks(tracks: Track[]): TrackGroup[] {
       }
     }
     
-    // Create a normalized key for grouping
-    const normalizedBaseName = baseName.toLowerCase()
-      .replace(/[^\w\s]/g, '') // Remove special characters
-      .replace(/\s+/g, ' ') // Normalize spaces
-      .trim();
-    
-    // Create a unique key for grouping
-    const groupKey = foundGroup || (unknown ? `__unknown__${Date.now()}_${normalizedBaseName}` : normalizedBaseName);
-    
-    if (!groups.has(groupKey)) {
-      groups.set(groupKey, {
-        id: `group-${groupKey.replace(/\s+/g, '-')}`,
+    if (foundGroup) {
+      // Add to existing group
+      foundGroup.tracks.push(track);
+      
+      // Update main track if this one seems more "canonical" (no version suffix)
+      const currentMainHasVersion = foundGroup.mainTrack.title.main.match(/\s*[-_]?\s*(V\d+|Version\s*\d*|Alt\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|[(\[].*[)\]])\s*$/i);
+      const newTrackHasVersion = track.title.main.match(/\s*[-_]?\s*(V\d+|Version\s*\d*|Alt\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|[(\[].*[)\]])\s*$/i);
+      
+      // Prefer track without version suffix
+      if (currentMainHasVersion && !newTrackHasVersion) {
+        foundGroup.mainTrack = track;
+        foundGroup.baseName = track.title.main;
+      }
+    } else {
+      // Create new group
+      const groupId = `group-${groups.length + 1}`;
+      const baseName = unknown ? 'Unknown' : track.title.main;
+      
+      // For unknown tracks, create individual groups to avoid lumping them together
+      const groupKey = unknown ? `${groupId}-${track.rawName || 'unknown'}` : groupId;
+      
+      groups.push({
+        id: groupKey,
         baseName,
         isUnknown: unknown,
-        tracks: [],
+        tracks: [track],
         mainTrack: track
       });
-    }
-    
-    const group = groups.get(groupKey)!;
-    group.tracks.push(track);
-    
-    // Update main track - prefer the one with the most complete title and no version suffix
-    const currentMainHasVersion = group.mainTrack.title.main.match(/\s*[-_]?\s*(V\d+|Version\s*\d*|Alt\s*\d*|Alternative\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|[(\[].*[)\]])\s*$/i);
-    const newTrackHasVersion = track.title.main.match(/\s*[-_]?\s*(V\d+|Version\s*\d*|Alt\s*\d*|Alternative\s*\d*|Demo\s*\d*|Snippet\s*\d*|Mix\s*\d*|Edit\s*\d*|Remix\s*\d*|[(\[].*[)\]])\s*$/i);
-    
-    // Prefer track without version suffix, or longer/more complete title
-    if (currentMainHasVersion && !newTrackHasVersion) {
-      group.mainTrack = track;
-      // Update the group's base name to the better one
-      group.baseName = extractBaseName(track.title);
-    } else if (!currentMainHasVersion && !newTrackHasVersion && track.title.main.length > group.mainTrack.title.main.length) {
-      group.mainTrack = track;
-      group.baseName = extractBaseName(track.title);
     }
   }
   
   // Sort groups: unknowns at the end, then alphabetically
-  return Array.from(groups.values()).sort((a, b) => {
+  return groups.sort((a, b) => {
     if (a.isUnknown !== b.isUnknown) {
       return a.isUnknown ? 1 : -1;
     }

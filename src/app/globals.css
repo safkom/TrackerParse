@@ -1,5 +1,5 @@
 @import "tailwindcss";
-@import "../styles/modern-player.css";
+@import "./modern-player.css";
 
 /* Modern color scheme with purple/blue accents */
 :root {
@@ -18,8 +18,10 @@
   --glass-bg: rgba(255, 255, 255, 0.9);
   --gradient-purple: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%);
   --gradient-blue: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
 }
 
 /* Dark theme */
@@ -37,8 +39,10 @@ html.dark {
   --text-secondary: #cbd5e1;
   --card-bg: rgba(30, 41, 59, 0.95);
   --glass-bg: rgba(30, 41, 59, 0.9);
-  --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
-  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
+  --shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
+  --shadow-lg:
+    0 10px 15px -3px rgba(0, 0, 0, 0.4), 0 4px 6px -2px rgba(0, 0, 0, 0.3);
 }
 
 html {
@@ -49,8 +53,11 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
-  transition: background-color 0.3s ease, color 0.3s ease;
+  font-family:
+    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Inter", sans-serif;
+  transition:
+    background-color 0.3s ease,
+    color 0.3s ease;
   line-height: 1.6;
   min-height: 100vh;
   overflow-x: hidden;
@@ -64,18 +71,19 @@ body {
   body {
     font-size: 0.95rem;
   }
-  
+
   /* Improved touch targets */
-  button, [role="button"] {
+  button,
+  [role="button"] {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Better spacing on mobile */
   .space-y-3 > * + * {
     margin-top: 0.5rem;
   }
-  
+
   .space-y-6 > * + * {
     margin-top: 1rem;
   }
@@ -87,11 +95,11 @@ body {
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   .text-3xl {
     font-size: 1.875rem;
   }
-  
+
   .text-4xl {
     font-size: 2.25rem;
   }
@@ -156,7 +164,9 @@ input:focus-visible,
 
 /* Smooth transitions */
 * {
-  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-property:
+    color, background-color, border-color, text-decoration-color, fill, stroke,
+    opacity, box-shadow, transform, filter, backdrop-filter;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   transition-duration: 150ms;
 }
@@ -204,8 +214,12 @@ input:focus-visible,
 }
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes slide-in-left {
@@ -248,7 +262,8 @@ input:focus-visible,
 }
 
 @keyframes pulse-glow {
-  0%, 100% {
+  0%,
+  100% {
     box-shadow: 0 0 5px rgba(168, 85, 247, 0.4);
   }
   50% {
@@ -320,7 +335,7 @@ input:focus-visible,
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Prevent text selection on touch elements */
   .touch-callout-none {
     -webkit-touch-callout: none;
@@ -330,7 +345,7 @@ input:focus-visible,
     -ms-user-select: none;
     user-select: none;
   }
-  
+
   /* Better tap highlighting */
   .tap-highlight-transparent {
     -webkit-tap-highlight-color: transparent;
@@ -340,11 +355,15 @@ input:focus-visible,
 /* Better focus styles for accessibility */
 .focus-ring:focus {
   outline: none;
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.5), 0 0 0 4px rgba(168, 85, 247, 0.2);
+  box-shadow:
+    0 0 0 2px rgba(168, 85, 247, 0.5),
+    0 0 0 4px rgba(168, 85, 247, 0.2);
 }
 
 .dark .focus-ring:focus {
-  box-shadow: 0 0 0 2px rgba(168, 85, 247, 0.6), 0 0 0 4px rgba(17, 24, 39, 1);
+  box-shadow:
+    0 0 0 2px rgba(168, 85, 247, 0.6),
+    0 0 0 4px rgba(17, 24, 39, 1);
 }
 
 .focus-ring-inset:focus {
@@ -367,14 +386,23 @@ input:focus-visible,
 
 /* Loading states */
 .loading-shimmer {
-  background: linear-gradient(90deg, var(--surface) 25%, var(--surface-dark) 50%, var(--surface) 75%);
+  background: linear-gradient(
+    90deg,
+    var(--surface) 25%,
+    var(--surface-dark) 50%,
+    var(--surface) 75%
+  );
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 /* High contrast mode support */
@@ -383,7 +411,7 @@ input:focus-visible,
     --border: #000000;
     --text-muted: #000000;
   }
-  
+
   html.dark {
     --border: #ffffff;
     --text-muted: #ffffff;
@@ -420,24 +448,32 @@ input:focus-visible,
 }
 
 /* Form input enhancements */
-input[type="url"], input[type="text"], textarea {
+input[type="url"],
+input[type="text"],
+textarea {
   background: var(--surface-dark) !important;
   border: 2px solid var(--border) !important;
   color: var(--foreground) !important;
 }
 
-.dark input[type="url"], .dark input[type="text"], .dark textarea {
+.dark input[type="url"],
+.dark input[type="text"],
+.dark textarea {
   background: var(--surface-dark) !important;
   border: 2px solid var(--border) !important;
   color: var(--foreground) !important;
 }
 
-input[type="url"]:focus, input[type="text"]:focus, textarea:focus {
+input[type="url"]:focus,
+input[type="text"]:focus,
+textarea:focus {
   border-color: var(--primary) !important;
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1) !important;
 }
 
-.dark input[type="url"]:focus, .dark input[type="text"]:focus, .dark textarea:focus {
+.dark input[type="url"]:focus,
+.dark input[type="text"]:focus,
+.dark textarea:focus {
   box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.2) !important;
 }
 
@@ -471,7 +507,9 @@ input[type="url"]:focus, input[type="text"]:focus, textarea:focus {
 
 /* Smooth transitions for theme changes */
 * {
-  transition-property: background-color, border-color, color, fill, stroke, opacity, box-shadow, transform;
+  transition-property:
+    background-color, border-color, color, fill, stroke, opacity, box-shadow,
+    transform;
   transition-duration: 200ms;
   transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -512,7 +550,8 @@ input[type="url"]:focus, input[type="text"]:focus, textarea:focus {
 
 /* Play button pulse animation */
 @keyframes pulse {
-  0%, 100% {
+  0%,
+  100% {
     opacity: 1;
   }
   50% {
@@ -589,23 +628,13 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .shimmer {
-  background: linear-gradient(
-    90deg,
-    #f0f0f0 25%,
-    #e0e0e0 37%,
-    #f0f0f0 63%
-  );
+  background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 37%, #f0f0f0 63%);
   background-size: 400px 100%;
   animation: shimmer 1.5s ease-in-out infinite;
 }
 
 .dark .shimmer {
-  background: linear-gradient(
-    90deg,
-    #374151 25%,
-    #4b5563 37%,
-    #374151 63%
-  );
+  background: linear-gradient(90deg, #374151 25%, #4b5563 37%, #374151 63%);
   background-size: 400px 100%;
 }
 
@@ -627,15 +656,16 @@ input[type="range"]::-moz-range-thumb {
 
 .album-card .bg-gradient-to-br {
   background-image: linear-gradient(
-    to bottom right, 
-    var(--tw-gradient-from), 
+    to bottom right,
+    var(--tw-gradient-from),
     var(--tw-gradient-to)
   );
 }
 
 /* Version Badge Animation */
 @keyframes badge-pulse {
-  0%, 100% {
+  0%,
+  100% {
     transform: scale(1);
   }
   50% {
@@ -649,7 +679,9 @@ input[type="range"]::-moz-range-thumb {
 
 /* Era Image Enhancement */
 .era-image {
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition:
+    transform 0.3s ease,
+    box-shadow 0.3s ease;
 }
 
 .era-image:hover {
@@ -672,26 +704,26 @@ input[type="range"]::-moz-range-thumb {
   html {
     font-size: 16px; /* Increased from 14px for better readability */
   }
-  
+
   body {
     overflow-x: hidden;
     /* Support for iOS safe areas */
     padding-bottom: env(safe-area-inset-bottom);
   }
-  
+
   /* Enhanced navigation for mobile */
   nav {
     height: 60px; /* Increased height for better touch targets */
     padding: 0 1rem;
   }
-  
+
   .nav-button {
     padding: 0.875rem 1rem; /* Larger touch targets */
     font-size: 1rem;
     border-radius: 8px;
     min-height: 44px;
   }
-  
+
   /* Album cards - better spacing and sizing */
   .album-card {
     margin: 0.5rem;
@@ -703,7 +735,7 @@ input[type="range"]::-moz-range-thumb {
     contain: layout style;
     will-change: transform;
   }
-  
+
   /* Track items - improved touch targets and spacing */
   .track-item {
     padding: 1rem 0.75rem;
@@ -712,13 +744,13 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 8px;
     min-height: 60px; /* Ensure adequate touch target */
   }
-  
+
   .track-list-item {
     padding: 1rem 0.75rem;
     margin-bottom: 0.5rem;
     border-radius: 8px;
   }
-  
+
   /* Modal and popup improvements */
   .modal-content {
     margin: 1rem;
@@ -726,16 +758,17 @@ input[type="range"]::-moz-range-thumb {
     border-radius: 16px;
     box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
   }
-  
+
   /* Metadata modal specific */
   .metadata-modal {
     padding: 1rem;
     margin: 1rem;
     border-radius: 16px;
   }
-  
+
   /* Enhanced buttons and interactive elements */
-  button, a[role="button"] {
+  button,
+  a[role="button"] {
     min-height: 44px;
     min-width: 44px;
     padding: 0.75rem 1rem;
@@ -743,50 +776,52 @@ input[type="range"]::-moz-range-thumb {
     font-size: 1rem;
     font-weight: 500;
   }
-  
+
   /* Form elements optimization */
-  input, select, textarea {
+  input,
+  select,
+  textarea {
     font-size: 16px; /* Prevent zoom on iOS */
     padding: 0.875rem 1rem;
     border-radius: 8px;
     min-height: 44px;
     border-width: 2px;
   }
-  
+
   /* Range inputs for music player */
   input[type="range"] {
     min-height: 44px;
     padding: 1rem 0;
   }
-  
+
   /* Better touch scrolling */
   * {
     -webkit-overflow-scrolling: touch;
   }
-  
+
   /* Prevent text overflow issues */
   .track-item h3 {
     word-break: break-word;
     hyphens: auto;
   }
-  
+
   /* Ensure buttons maintain proper size */
   button {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Optimize modal positioning on mobile */
   .modal-content {
     margin: 1rem;
     max-height: calc(100vh - 2rem);
   }
-  
+
   /* Prevent layout shift with flexbox */
   .flex-wrap {
     min-height: 0;
   }
-  
+
   /* Better line clamping */
   .line-clamp-1 {
     overflow: hidden;
@@ -795,7 +830,7 @@ input[type="range"]::-moz-range-thumb {
     line-clamp: 1;
     -webkit-box-orient: vertical;
   }
-  
+
   .line-clamp-2 {
     overflow: hidden;
     display: -webkit-box;
@@ -803,66 +838,66 @@ input[type="range"]::-moz-range-thumb {
     line-clamp: 2;
     -webkit-box-orient: vertical;
   }
-  
-/* Music Player Mobile Optimizations */
-.music-player-mobile {
-  position: fixed !important;
-  bottom: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  z-index: 9999 !important;
-  /* Account for iOS safe areas */
-  padding-bottom: env(safe-area-inset-bottom, 0px) !important;
-  /* Prevent scrolling issues */
-  overscroll-behavior: contain;
-  contain: layout style;
-  /* Ensure it stays in place */
-  transform: translateZ(0);
-  will-change: transform;
-}
 
-/* Modal optimizations for mobile */
-.modal-mobile {
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 10000 !important;
-  /* Prevent body scroll */
-  overscroll-behavior: contain;
-  touch-action: none;
-}
+  /* Music Player Mobile Optimizations */
+  .music-player-mobile {
+    position: fixed !important;
+    bottom: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    z-index: 9999 !important;
+    /* Account for iOS safe areas */
+    padding-bottom: env(safe-area-inset-bottom, 0px) !important;
+    /* Prevent scrolling issues */
+    overscroll-behavior: contain;
+    contain: layout style;
+    /* Ensure it stays in place */
+    transform: translateZ(0);
+    will-change: transform;
+  }
 
-/* Era container optimization - prevent layout shifts */
-.era-container {
-  position: relative;
-  transform: translateZ(0);
-  contain: layout style;
-  isolation: isolate;
-  z-index: 1;
-}
+  /* Modal optimizations for mobile */
+  .modal-mobile {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    right: 0 !important;
+    bottom: 0 !important;
+    z-index: 10000 !important;
+    /* Prevent body scroll */
+    overscroll-behavior: contain;
+    touch-action: none;
+  }
 
-.era-container.era-expanded {
-  z-index: 10;
-}  /* Container improvements */
+  /* Era container optimization - prevent layout shifts */
+  .era-container {
+    position: relative;
+    transform: translateZ(0);
+    contain: layout style;
+    isolation: isolate;
+    z-index: 1;
+  }
+
+  .era-container.era-expanded {
+    z-index: 10;
+  } /* Container improvements */
   .container {
     padding-left: 1rem;
     padding-right: 1rem;
   }
-  
+
   /* Prevent layout thrashing */
   .track-item {
     contain: layout style paint;
     will-change: transform;
   }
-  
+
   /* Optimize transitions for performance */
   .transition-all {
     transition-duration: 200ms;
     transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
   }
-  
+
   /* Prevent modal scroll issues */
   .modal-backdrop {
     overflow: hidden;
@@ -871,39 +906,39 @@ input[type="range"]::-moz-range-thumb {
     -webkit-overflow-scrolling: touch;
     touch-action: none;
   }
-  
+
   /* Content area spacing */
   .content-area {
     padding: 1rem;
     margin-top: 4rem; /* Account for navigation */
     margin-bottom: 7rem; /* Account for music player */
   }
-  
+
   /* Typography improvements for mobile */
   h1 {
     font-size: 2rem;
     line-height: 1.2;
     margin-bottom: 1rem;
   }
-  
+
   h2 {
     font-size: 1.5rem;
     line-height: 1.3;
     margin-bottom: 0.75rem;
   }
-  
+
   h3 {
     font-size: 1.25rem;
     line-height: 1.4;
     margin-bottom: 0.5rem;
   }
-  
+
   /* Improved text contrast and spacing */
   p {
     line-height: 1.6;
     margin-bottom: 1rem;
   }
-  
+
   /* Better card layouts */
   .card {
     border-radius: 12px;
@@ -919,16 +954,16 @@ input[type="range"]::-moz-range-thumb {
     padding-left: 1.5rem;
     padding-right: 1.5rem;
   }
-  
+
   .content-area {
     padding: 1.5rem;
   }
-  
+
   .album-card {
     margin: 0.75rem;
     padding: 1.25rem;
   }
-  
+
   .track-item {
     padding: 0.875rem 1rem;
   }
@@ -942,39 +977,42 @@ input[type="range"]::-moz-range-thumb {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
   }
-  
+
   .dark .track-item:hover {
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.4);
   }
-  
+
   /* Improve card layouts on desktop */
   .album-card {
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition:
+      transform 0.2s ease,
+      box-shadow 0.2s ease;
     margin: 1rem;
     padding: 1.5rem;
   }
-  
+
   .album-card:hover {
     transform: translateY(-4px);
     box-shadow: 0 15px 45px rgba(0, 0, 0, 0.12);
   }
-  
+
   .dark .album-card:hover {
     box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5);
   }
-  
+
   /* Better button interactions */
-  button:hover, a[role="button"]:hover {
+  button:hover,
+  a[role="button"]:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     transition: all 0.2s ease;
   }
-  
+
   /* Enhanced navigation */
   nav {
     backdrop-filter: blur(20px);
   }
-  
+
   /* Better content spacing */
   .content-area {
     max-width: 1200px;
@@ -1026,37 +1064,40 @@ input[type="range"]::-moz-range-thumb {
     -webkit-perspective: 1000;
     perspective: 1000;
   }
-  
+
   /* Optimize touch interactions */
-  button, a, .cursor-pointer {
+  button,
+  a,
+  .cursor-pointer {
     touch-action: manipulation;
     -webkit-tap-highlight-color: transparent;
   }
-  
+
   /* Reduce reflows and repaints */
-  .album-card, .track-item {
+  .album-card,
+  .track-item {
     contain: layout style paint;
     will-change: transform;
   }
-  
+
   /* Optimize text rendering */
   body {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeSpeed;
   }
-  
+
   /* Improve scroll performance */
   .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
   }
-  
+
   /* Optimize images */
   img {
     image-rendering: optimizeQuality;
   }
-  
+
   /* Enhanced mobile music player visibility */
   .music-player,
   div[class*="fixed bottom-0"] {
@@ -1073,204 +1114,209 @@ input[type="range"]::-moz-range-thumb {
     padding-bottom: max(1rem, env(safe-area-inset-bottom, 1rem)) !important;
     min-height: 80px !important;
   }
-  
+
   /* Dark mode music player */
   .dark .music-player,
   .dark div[class*="fixed bottom-0"] {
     background: rgba(17, 24, 39, 0.98) !important;
     border-top: 1px solid rgba(255, 255, 255, 0.1) !important;
   }
-  
+
   /* Ensure content doesn't get hidden behind player */
   body {
     padding-bottom: 100px;
   }
-  
+
   /* Larger touch targets for mobile */
   button {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Reduce animation complexity on mobile */
   .animate-pulse {
     animation-duration: 1.5s;
   }
-  
+
   .animate-spin {
     animation-duration: 1s;
   }
-  
+
   /* Optimize modal performance */
   .modal-backdrop {
     backdrop-filter: blur(4px);
   }
-  
+
   /* Minimize layout thrashing */
   .space-y-2 > * + * {
     margin-top: 0.5rem;
   }
-  
+
   /* Improve button hit targets */
   button {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Optimize flexbox */
   .flex {
     flex-shrink: 0;
   }
 
-/* Custom animations for special tracks */
-@keyframes shimmer {
-  0% {
-    background-position: -200px 0;
+  /* Custom animations for special tracks */
+  @keyframes shimmer {
+    0% {
+      background-position: -200px 0;
+    }
+    100% {
+      background-position: 200px 0;
+    }
   }
-  100% {
-    background-position: 200px 0;
+
+  @keyframes glow {
+    0%,
+    100% {
+      box-shadow: 0 0 5px rgba(168, 85, 247, 0.4);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(168, 85, 247, 0.8);
+    }
   }
-}
 
-@keyframes glow {
-  0%, 100% {
-    box-shadow: 0 0 5px rgba(168, 85, 247, 0.4);
-  }
-  50% {
-    box-shadow: 0 0 20px rgba(168, 85, 247, 0.8);
-  }
-}
-
-/* Special track indicators */
-.special-track {
-  position: relative;
-  overflow: hidden;
-}
-
-.special-track::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: -200px;
-  width: 200px;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    transparent,
-    rgba(168, 85, 247, 0.1),
-    transparent
-  );
-  animation: shimmer 3s infinite;
-}
-
-.wanted-track {
-  animation: glow 2s infinite;
-}
-
-/* Enhanced glass morphism */
-.glass {
-  background: var(--glass-bg);
-  backdrop-filter: blur(20px) saturate(180%);
-  border: 1px solid rgba(255, 255, 255, 0.125);
-}
-
-/* Improved hover effects */
-.hover-lift {
-  transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-.hover-lift:hover {
-  transform: translateY(-2px);
-}
-
-/* Modern scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(168, 85, 247, 0.3);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(168, 85, 247, 0.5);
-}
-  }
-  
-  .flex-1 {
-    flex: 1 1 0%;
-    min-width: 0;
-  }
-  
-  /* Optimize scrolling containers */
-  .max-h-96 {
-    max-height: 20rem;
-  }
-  
-  /* Optimize virtualization */
-  .virtualized-list {
-    contain: strict;
+  /* Special track indicators */
+  .special-track {
+    position: relative;
     overflow: hidden;
-    will-change: transform;
   }
+
+  .special-track::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: -200px;
+    width: 200px;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(168, 85, 247, 0.1),
+      transparent
+    );
+    animation: shimmer 3s infinite;
+  }
+
+  .wanted-track {
+    animation: glow 2s infinite;
+  }
+
+  /* Enhanced glass morphism */
+  .glass {
+    background: var(--glass-bg);
+    backdrop-filter: blur(20px) saturate(180%);
+    border: 1px solid rgba(255, 255, 255, 0.125);
+  }
+
+  /* Improved hover effects */
+  .hover-lift {
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+
+  /* Modern scrollbar */
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: rgba(168, 85, 247, 0.3);
+    border-radius: 4px;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(168, 85, 247, 0.5);
+  }
+}
+
+.flex-1 {
+  flex: 1 1 0%;
+  min-width: 0;
+}
+
+/* Optimize scrolling containers */
+.max-h-96 {
+  max-height: 20rem;
+}
+
+/* Optimize virtualization */
+.virtualized-list {
+  contain: strict;
+  overflow: hidden;
+  will-change: transform;
+}
 
 /* Enhanced Mobile Optimizations */
 @media (max-width: 768px) {
   /* Improve touch targets */
-  button, .clickable {
+  button,
+  .clickable {
     min-height: 44px;
     min-width: 44px;
   }
-  
+
   /* Better touch scrolling */
   .overflow-y-auto {
     -webkit-overflow-scrolling: touch;
     overscroll-behavior-y: contain;
   }
-  
+
   /* Optimize era containers to prevent shifts */
   .era-container {
     contain: layout style;
     transform: translateZ(0);
     will-change: transform;
   }
-  
+
   /* Optimize modal positioning for mobile keyboards */
   .fixed.inset-x-0.bottom-0 {
     /* Account for mobile keyboard */
     bottom: env(keyboard-inset-height, 0px);
   }
-  
+
   /* Enhanced safe area handling */
   .pb-20 {
     padding-bottom: max(5rem, env(safe-area-inset-bottom, 5rem));
   }
-  
+
   /* Better mobile typography */
   .text-lg {
     font-size: 1.25rem;
     line-height: 1.5;
   }
-  
+
   /* Optimize backdrop blur for mobile performance */
   .backdrop-blur-sm {
     backdrop-filter: blur(4px);
     -webkit-backdrop-filter: blur(4px);
   }
-  
+
   /* Enhanced touch feedback */
   .transition-colors {
-    transition: background-color 0.15s ease-in-out, color 0.15s ease-in-out;
+    transition:
+      background-color 0.15s ease-in-out,
+      color 0.15s ease-in-out;
   }
-  
+
   /* Better focus states for mobile */
-  button:focus, a:focus {
+  button:focus,
+  a:focus {
     outline: 2px solid rgba(59, 130, 246, 0.5);
     outline-offset: 2px;
   }
@@ -1278,12 +1324,12 @@ input[type="range"]::-moz-range-thumb {
 
 /* Mobile-specific utilities */
 .scrollbar-hide {
-  -ms-overflow-style: none;  /* IE and Edge */
-  scrollbar-width: none;  /* Firefox */
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 .scrollbar-hide::-webkit-scrollbar {
-  display: none;  /* Chrome, Safari and Opera */
+  display: none; /* Chrome, Safari and Opera */
 }
 
 /* Touch-friendly interactions */

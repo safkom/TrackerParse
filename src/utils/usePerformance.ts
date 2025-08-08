@@ -1,30 +1,33 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from "react";
 
 /**
  * Enhanced debounced state hook with mobile-optimized performance
  */
 export function useDebouncedState<T>(
   initialValue: T,
-  delay: number = 300
+  delay: number = 300,
 ): [T, T, (value: T) => void, boolean] {
   const [value, setValue] = useState<T>(initialValue);
   const [debouncedValue, setDebouncedValue] = useState<T>(initialValue);
   const [isPending, setIsPending] = useState(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
 
-  const updateValue = useCallback((newValue: T) => {
-    setValue(newValue);
-    setIsPending(true);
+  const updateValue = useCallback(
+    (newValue: T) => {
+      setValue(newValue);
+      setIsPending(true);
 
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current);
-    }
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+      }
 
-    timeoutRef.current = setTimeout(() => {
-      setDebouncedValue(newValue);
-      setIsPending(false);
-    }, delay);
-  }, [delay]);
+      timeoutRef.current = setTimeout(() => {
+        setDebouncedValue(newValue);
+        setIsPending(false);
+      }, delay);
+    },
+    [delay],
+  );
 
   useEffect(() => {
     return () => {
@@ -43,15 +46,18 @@ export function useDebouncedState<T>(
 export function useOptimizedSearch<T>(
   items: T[],
   searchFields: (keyof T)[],
-  initialQuery: string = ''
+  initialQuery: string = "",
 ) {
-  const [query, debouncedQuery, setQuery, isSearching] = useDebouncedState(initialQuery, 200);
+  const [query, debouncedQuery, setQuery, isSearching] = useDebouncedState(
+    initialQuery,
+    200,
+  );
   const [filteredItems, setFilteredItems] = useState<T[]>(items);
   const workerRef = useRef<Worker | null>(null);
 
   // Use Web Worker for heavy search operations on large datasets
   useEffect(() => {
-    if (typeof window !== 'undefined' && items.length > 1000) {
+    if (typeof window !== "undefined" && items.length > 1000) {
       // Create a simple Web Worker for search
       const workerCode = `
         self.onmessage = function(e) {
@@ -75,7 +81,7 @@ export function useOptimizedSearch<T>(
         };
       `;
 
-      const blob = new Blob([workerCode], { type: 'application/javascript' });
+      const blob = new Blob([workerCode], { type: "application/javascript" });
       workerRef.current = new Worker(URL.createObjectURL(blob));
 
       workerRef.current.onmessage = (e) => {
@@ -102,18 +108,18 @@ export function useOptimizedSearch<T>(
       workerRef.current.postMessage({
         items,
         query: debouncedQuery,
-        fields: searchFields
+        fields: searchFields,
       });
     } else {
       // Regular filtering for smaller datasets
       const queryLower = debouncedQuery.toLowerCase();
-      const filtered = items.filter(item => {
-        return searchFields.some(field => {
+      const filtered = items.filter((item) => {
+        return searchFields.some((field) => {
           const value = item[field];
-          if (typeof value === 'string') {
+          if (typeof value === "string") {
             return value.toLowerCase().includes(queryLower);
           }
-          if (typeof value === 'object' && value !== null) {
+          if (typeof value === "object" && value !== null) {
             return JSON.stringify(value).toLowerCase().includes(queryLower);
           }
           return false;
@@ -127,9 +133,9 @@ export function useOptimizedSearch<T>(
     query,
     setQuery,
     filteredItems,
-    isSearching: isSearching || (debouncedQuery !== query),
+    isSearching: isSearching || debouncedQuery !== query,
     hasQuery: debouncedQuery.trim().length > 0,
-    resultCount: filteredItems.length
+    resultCount: filteredItems.length,
   };
 }
 
@@ -140,7 +146,7 @@ export function useVirtualList<T>({
   items,
   itemHeight,
   containerHeight,
-  overscan = 5
+  overscan = 5,
 }: {
   items: T[];
   itemHeight: number;
@@ -152,7 +158,7 @@ export function useVirtualList<T>({
   const startIndex = Math.max(0, Math.floor(scrollTop / itemHeight) - overscan);
   const endIndex = Math.min(
     items.length - 1,
-    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan
+    Math.ceil((scrollTop + containerHeight) / itemHeight) + overscan,
   );
 
   const visibleItems = items.slice(startIndex, endIndex + 1);
@@ -167,7 +173,7 @@ export function useVirtualList<T>({
     endIndex,
     onScroll: (e: React.UIEvent<HTMLElement>) => {
       setScrollTop(e.currentTarget.scrollTop);
-    }
+    },
   };
 }
 
@@ -175,7 +181,7 @@ export function useVirtualList<T>({
  * Intersection Observer hook for lazy loading
  */
 export function useIntersectionObserver(
-  options: IntersectionObserverInit = { threshold: 0.1 }
+  options: IntersectionObserverInit = { threshold: 0.1 },
 ) {
   const [entries, setEntries] = useState<IntersectionObserverEntry[]>([]);
   const observer = useRef<IntersectionObserver | null>(null);
@@ -195,7 +201,7 @@ export function useIntersectionObserver(
   useEffect(() => {
     observer.current = new IntersectionObserver(
       (observedEntries) => setEntries(observedEntries),
-      options
+      options,
     );
 
     return () => {

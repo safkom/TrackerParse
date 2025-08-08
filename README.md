@@ -29,28 +29,38 @@ Your Google Sheets should contain the following columns:
 
 ### Prerequisites
 
-- Node.js 18+ 
+- Node.js 18+
 - npm or yarn
 
 ### Installation
 
 1. Clone the repository:
+
 ```bash
 git clone <your-repo-url>
 cd TrackerParse
 ```
 
 2. Install dependencies:
+
 ```bash
 npm install
 ```
 
 3. Run the development server:
+
 ```bash
 npm run dev
 ```
 
 4. Open [http://localhost:3000](http://localhost:3000) in your browser
+
+### Available Scripts
+
+- `npm run lint` – run ESLint
+- `npm run typecheck` – run TypeScript compiler in noEmit mode
+- `npm test` – execute unit tests
+- `npm run build` – create production build
 
 ### Usage
 
@@ -70,6 +80,7 @@ npm run dev
 ## 🏗️ Architecture
 
 ### Parser Engine
+
 TrackerParse uses **ImprovedParser** as the single, consolidated parsing engine that handles:
 
 - **Multiple Input Formats**: CSV export URLs and JSON data
@@ -82,6 +93,7 @@ TrackerParse uses **ImprovedParser** as the single, consolidated parsing engine 
 - **Configurable Column Mapping**: Adapts to different tracker formats automatically
 
 ### Project Structure
+
 ```
 src/
 ├── app/
@@ -97,18 +109,20 @@ src/
 ├── components/                  # React components
 ├── utils/
 │   ├── improvedParser.ts        # Main parsing engine ⭐
-│   ├── googleDocsParser.ts      # Deprecated - use ImprovedParser
-│   ├── cacheManager.ts          # Cache management
-│   └── ...
+│   ├── googleSheetsAPI.ts       # Google Sheets API helper
+│   ├── requestQueue.ts          # Client-side request queue
+│   └── usePerformance.ts        # Virtual list hook
 └── types/                       # TypeScript definitions
 ```
 
 ## API Endpoints
 
 ### POST /api/parse
+
 Parse a Google Docs spreadsheet URL
 
 **Request Body:**
+
 ```json
 {
   "googleDocsUrl": "https://docs.google.com/spreadsheets/d/...",
@@ -117,6 +131,7 @@ Parse a Google Docs spreadsheet URL
 ```
 
 **Response:**
+
 ```json
 {
   "artist": {
@@ -130,12 +145,15 @@ Parse a Google Docs spreadsheet URL
 ```
 
 ### GET /api/parse?docId=...
+
 Retrieve cached data for a specific document ID
 
 ### POST /api/debug/raw
+
 Get raw unparsed data from a Google Sheet for debugging
 
 **Request Body:**
+
 ```json
 {
   "googleDocsUrl": "https://docs.google.com/spreadsheets/d/..."
@@ -143,6 +161,7 @@ Get raw unparsed data from a Google Sheet for debugging
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -166,9 +185,11 @@ Get raw unparsed data from a Google Sheet for debugging
 ```
 
 ### POST /api/debug/parse
+
 Get detailed parsing logs and step-by-step analysis
 
 **Request Body:**
+
 ```json
 {
   "googleDocsUrl": "https://docs.google.com/spreadsheets/d/..."
@@ -176,6 +197,7 @@ Get detailed parsing logs and step-by-step analysis
 ```
 
 **Response:**
+
 ```json
 {
   "success": true,
@@ -204,7 +226,9 @@ Get detailed parsing logs and step-by-step analysis
 ```
 
 ### Debug Page
+
 Visit `/debug` for an interactive debugging interface that allows you to:
+
 - View raw CSV data from Google Sheets
 - Analyze potential header rows
 - See detailed parsing logs
